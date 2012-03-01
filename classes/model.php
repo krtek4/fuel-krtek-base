@@ -285,7 +285,7 @@ abstract class Model_Base extends \Model_Crud {
 	private static function _process_fieldset_input($model, $definition, array &$fields, array $data) {
 		$fields[$model] = array();
 		foreach($model::$_fieldsets[$definition] as $field) {
-			$info = explode(':', $field);
+			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
 				$name = self::_field_name($field, $model);
 				$fields[$model][$field] = \Input::post($name, \Arr::get($data, $name, null));
