@@ -71,12 +71,14 @@ abstract class ViewModel_Base extends \ViewModel {
 	/**
 	 * Set fields from the model on this ViewModel. If a definition is provided,
 	 * only fields from this particular fieldset definition will be set.
+	 * WARNING! fields from other models linked through the definition won't be
+	 * loaded.
 	 *
 	 * @param Model_Base $model The model to fetch data from
 	 * @param string $definition a fieldset definition for filtering.
 	 */
 	protected function set_data_from_model($model, $definition = null) {
-		// FIXME: correctly implements this.
+		// FIXME: correctly implements this (ie filtering).
 		foreach($model as $key => $value)
 			$this->{$key} = $value;
 	}
