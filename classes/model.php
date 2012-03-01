@@ -295,7 +295,7 @@ abstract class Model_Base extends \Model_Crud {
 						$new_model = $model; // extend a definition from the same model
 						break;
 					case 'special':
-						return; // special field, nothing to do
+						continue; // special field, nothing to do
 					default:
 						$new_model = $info[0]; // inclusion of a definition from another model
 				}
