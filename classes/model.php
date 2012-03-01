@@ -46,6 +46,29 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
+	 * Get a particular row if an $id is set, or all rows if it's null.
+	 *
+	 * If the given id returns no row, a 404 error is raised. If all rows
+	 * were asked and their's none, an empty array will be returned.
+	 *
+	 * @param int $id id for one row, null for all
+	 * @return Model_*|array Instance of a model object, or array of instances.
+	 */
+	public static function e_find($id = null) {
+		if(is_null($id)) {
+			$object = static::find_all();
+			if(is_null($object))
+				$object = array();
+		} else {
+			$object = static::find_by_pk($id);
+			if(is_null($object))
+				throw new \Fuel\Core\HttpNotFoundException();
+		}
+
+		return $object;
+	}
+
+	/**
 	 * Add magic methods to count by columns
 	 *
 	 * @param   string  $name  The method name
@@ -443,7 +466,7 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	protected function pre_update($query) {
 		if(! Acl::model_access($this, 'update'))
-				throw new AclException('No update rights for this object.');
+			throw new HttpForbiddenException();
 		return parent::pre_update($query);
 	}
 
@@ -451,9 +474,8 @@ abstract class Model_Base extends \Model_Crud {
 	 * Overridden to add access control based on action type
 	 */
 	protected function pre_delete($query) {
-
 		if(! Acl::model_access($this, 'delete'))
-				throw new AclException('No delete rights for this object.');
+			throw new HttpForbiddenException();
 		return parent::pre_delete($query);
 	}
 
@@ -462,7 +484,7 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	protected function pre_save($query) {
 		if(! Acl::model_access($this, 'save'))
-				throw new AclException('No save rights for this object.');
+			throw new HttpForbiddenException();
 		return parent::pre_save($query);
 	}
 
@@ -471,7 +493,7 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	protected static function pre_find($query) {
 		if(! Acl::model_access(get_called_class(), 'find'))
-				throw new AclException('No find rights for this object.');
+			throw new HttpForbiddenException();
 		return parent::pre_find($query);
 	}
 }

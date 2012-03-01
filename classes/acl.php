@@ -3,6 +3,15 @@
 namespace Base;
 
 /**
+ * Thrown when a 403 forbidden error is needed.
+ */
+class HttpForbiddenException extends \Fuel\Core\HttpException {
+	public function response() {
+		return new \Response(\View::forge('403'), 403);
+	}
+}
+
+/**
  * Thrown when an user hasn't access to some ressource.
  */
 class AclException extends \Auth\AuthException { }

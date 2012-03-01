@@ -30,7 +30,7 @@ abstract class Controller_Base extends \Controller_Template {
 	 */
 	public function before() {
 		if(! Acl::controller_access($this->request->controller, $this->request->action))
-			throw new AclException('You don\'t have access to '.$controller.'->'.$action);
+			throw new HttpForbiddenException();
 
 		parent::before();
 		$this->auto_render = false;
