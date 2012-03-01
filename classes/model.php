@@ -442,7 +442,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * Overridden to add access control based on action type
 	 */
 	protected function pre_update($query) {
-		if(! \Auth_Acl_Chauve::model_access($this, 'update'))
+		if(! Acl::model_access($this, 'update'))
 				throw new AclException('No update rights for this object.');
 		return parent::pre_update($query);
 	}
@@ -451,7 +451,8 @@ abstract class Model_Base extends \Model_Crud {
 	 * Overridden to add access control based on action type
 	 */
 	protected function pre_delete($query) {
-		if(! \Auth_Acl_Chauve::model_access($this, 'delete'))
+
+		if(! Acl::model_access($this, 'delete'))
 				throw new AclException('No delete rights for this object.');
 		return parent::pre_delete($query);
 	}
@@ -460,7 +461,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * Overridden to add access control based on action type
 	 */
 	protected function pre_save($query) {
-		if(! \Auth_Acl_Chauve::model_access($this, 'save'))
+		if(! Acl::model_access($this, 'save'))
 				throw new AclException('No save rights for this object.');
 		return parent::pre_save($query);
 	}
@@ -469,7 +470,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * Overridden to add access control based on action type
 	 */
 	protected static function pre_find($query) {
-		if(! \Auth_Acl_Chauve::model_access(get_called_class(), 'find'))
+		if(! Acl::model_access(get_called_class(), 'find'))
 				throw new AclException('No find rights for this object.');
 		return parent::pre_find($query);
 	}

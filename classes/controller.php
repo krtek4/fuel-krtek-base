@@ -29,7 +29,7 @@ abstract class Controller_Base extends \Controller_Template {
 	 * Set auto_render to false.
 	 */
 	public function before() {
-		if(! \Auth_Acl_Chauve::controller_access($this->request->controller, $this->request->action))
+		if(! Acl::controller_access($this->request->controller, $this->request->action))
 			throw new AclException('You don\'t have access to '.$controller.'->'.$action);
 
 		parent::before();

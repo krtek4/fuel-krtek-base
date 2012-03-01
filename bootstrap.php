@@ -18,4 +18,5 @@ Autoloader::add_classes(array(
 	'Base\\Model_Base' => __DIR__.'/classes/model.php',
 	'Base\\Controller_Base' => __DIR__.'/classes/controller.php',
 	'Base\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
+	'Base\\Acl' => __DIR__.'/classes/acl.php',
 ));
