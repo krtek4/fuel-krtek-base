@@ -177,6 +177,20 @@ abstract class Model_Base extends \Model_Crud {
 			$f = $fieldset->validation()->add(self::_field_name($field), $label);
 
 		$attributes = static::$_attributes[$field];
+
+		if(substr($field, -3) == '_id' && $attributes['type'] == 'select') {
+			if(isset($attributes['callback'])) {
+				$callback = $attributes['callback'];
+				unset($attributes['callback']);
+			} else
+				$callback = array('Model_'.ucfirst(substr($field, 0, -3)), 'find_all');
+
+			$attributes['options'] = array();
+			foreach(call_user_func($callback) as $rows) {
+				$attributes['options'][$rows['id']] = $rows->select_name();
+			}
+		}
+
 		// Set certain types through specific setter
 		foreach (array('label', 'type', 'value', 'options') as $prop)
 			if (array_key_exists($prop, $attributes)) {
