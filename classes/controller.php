@@ -45,7 +45,7 @@ abstract class Controller_Base extends \Controller_Template {
 	 */
 	final protected function process_fieldset() {
 		if(! $this->_fieldset_processed = Model_Base::process_fieldset_input())
-				Messages\Messages::instance()->message('error', 'Veuillez vérifier les informations fournies.');
+				\Messages\Messages::instance()->message('error', 'Veuillez vérifier les informations fournies.');
 		return $this->fieldset_process_result();
 	}
 
