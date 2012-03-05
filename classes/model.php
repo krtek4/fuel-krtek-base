@@ -302,7 +302,9 @@ abstract class Model_Base extends \Model_Crud {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
 				$name = self::_field_name($field, $model);
-				$fields[$model][$field] = \Input::post($name, \Arr::get($data, $name, null));
+				$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
+				$fields[$model][$field] = \Input::post($name, \Arr::get($data, $name, $default));
+
 			} else {
 				switch($info[0]) {
 					case 'extend':
