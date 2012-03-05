@@ -20,6 +20,14 @@ class AclException extends \Auth\AuthException { }
  * Helper class used to query the auth driver about access to various
  * part of the application.
  *
+ * The conditions passed to the ACL driver respect the standard format for the
+ * most part (ie array(area, rights)). When needed, a third argument is added :
+ * array(area, rights, additional contextual information).
+ *
+ * One specific area exists and is named 'Model', the right is either 'find',
+ * 'save', 'update' or 'delete'. All other areas are supposed to be the
+ * controller name and the right is the action.
+ *
  * @package krtek-Base
  * @category BaseInterfaces
  * @author Gilles Meier <krtek4@gmail.com>
@@ -30,6 +38,16 @@ class AclException extends \Auth\AuthException { }
  */
 class Acl {
 	/**
+	 * Helper method to call \Auth\Auth::instance()->has_access()
+	 *
+	 * @param string $condition
+	 * @return bool Wheter the user has access or not
+	 */
+	private static function _check_access($condition) {
+		return \Auth\Auth::instance()->has_access($condition);
+	}
+
+	/**
 	 * Check for access right on a model_instance or class.
 	 *
 	 * @param Model_Base|string $instance either a model class instance or a class name
@@ -37,8 +55,8 @@ class Acl {
 	 * @return bool Wheter the user has access or not
 	 */
 	public static function model_access($instance, $action) {
-		return true;
-		// FIXME: implement this method
+		$condition = array('Model', $action, $instance);
+		return self::_check_access($condition);
 	}
 
 	/**
@@ -50,8 +68,8 @@ class Acl {
 	 * @return bool Wheter the user has access or not
 	 */
 	public static function controller_access($controller, $action = 'index', $domain = null) {
-		return true;
-		// FIXME: implement this method
+		$condition = array($controller, $action);
+		return self::_check_access($condition);
 	}
 }
 
