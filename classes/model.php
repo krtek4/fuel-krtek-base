@@ -167,16 +167,17 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $field Field definition
 	 */
 	protected static function _add_field($fieldset, $field) {
-		if(! isset(static::$_labels[$field]))
+		$label = static::_labels($field);
+		if(! $label)
 			throw new Model_Exception ('No label found for '.$field);
 
-		$label = static::$_labels[$field];
-		if(isset(static::$_rules[$field]))
-			$f = $fieldset->validation()->add_field(self::_field_name($field), $label, static::$_rules[$field]);
+		$rules = static::_rules($field);
+		if($rules)
+			$f = $fieldset->validation()->add_field(self::_field_name($field), $label, $rules);
 		else
 			$f = $fieldset->validation()->add(self::_field_name($field), $label);
 
-		$attributes = static::$_attributes[$field];
+		$attributes = static::_attributes($field);
 
 		if(substr($field, -3) == '_id' && $attributes['type'] == 'select') {
 			if(isset($attributes['callback'])) {
@@ -209,7 +210,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $field Field definition
 	 */
 	protected static function _add_special_field($fieldset, $field) {
-		$label = static::$_labels[$field];
+		$label = static::_labels($field);
 		$fieldset->{$field}($label);
 	}
 
@@ -223,6 +224,40 @@ abstract class Model_Base extends \Model_Crud {
 	protected static function _field_name($field, $model = null) {
 		$model = is_null($model) ? get_called_class() : $model;
 		return $model::$_table_name.'_'.$field;
+	}
+
+	/**
+	 * Return the rules for the given field name.
+	 *
+	 * @param string $name the field name
+	 * @return array|bool rules for the field, false of there's no rules
+	 */
+	protected static function _rules($name) {
+		if(isset(static::$_rules[$name]))
+			return static::$_rules[$name];
+		return false;
+	}
+
+	/**
+	 * Return the label for the given field name.
+	 *
+	 * @param string $name the field name
+	 * @return string|bool label for the field, false if there's no label
+	 */
+	protected static function _labels($name) {
+		if(isset(static::$_labels[$name]))
+			return static::$_labels[$name];
+		return false;
+	}
+
+	/**
+	 * Return the attributes for the given field name.
+	 *
+	 * @param string $name the field name
+	 * @return array attributes for the field
+	 */
+	protected static function _attributes($name) {
+		return static::$_attributes[$name];
 	}
 
 	/**
