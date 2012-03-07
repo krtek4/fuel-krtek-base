@@ -117,10 +117,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $name The definition name
 	 */
 	protected static function _process_fieldset_definition($fieldset, $name) {
-		if(! array_key_exists($name, static::$_fieldsets))
-				throw new Model_Exception("Unknown fieldset name : ".get_called_class().'->'.$name);
-
-		foreach(static::$_fieldsets[$name] as $field)
+		foreach(static::_fieldset($name) as $field)
 			self::_process_field($fieldset, $field);
 	}
 
@@ -224,6 +221,24 @@ abstract class Model_Base extends \Model_Crud {
 	protected static function _field_name($field, $model = null) {
 		$model = is_null($model) ? get_called_class() : $model;
 		return $model::$_table_name.'_'.$field;
+	}
+
+	/**
+	 * Return the fieldset definition corresponding to $name or throw
+	 * exception if not found or invalid.
+	 *
+	 * @throws Model_Exception when fieldset not found or invalid
+	 * @param string $name the definition name
+	 * @return array fieldset definition
+	 */
+	protected static function _fieldset($name) {
+		if(! array_key_exists($name, static::$_fieldsets))
+				throw new Model_Exception("Unknown fieldset name : ".get_called_class().'->'.$name);
+
+		if(! is_array(static::$_fieldsets[$name]))
+				throw new Model_Exception("Invalid fieldset definition : ".get_called_class().'->'.$name);
+
+		return static::$_fieldsets[$name];
 	}
 
 	/**
@@ -333,7 +348,7 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	private static function _process_fieldset_input($model, $definition, array &$fields, array $data) {
 		$fields[$model] = array();
-		foreach($model::$_fieldsets[$definition] as $field) {
+		foreach($model::_fieldset($definition) as $field) {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
 				$name = self::_field_name($field, $model);
