@@ -230,7 +230,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * Return the rules for the given field name.
 	 *
 	 * @param string $name the field name
-	 * @return array|bool rules for the field, false of there's no rules
+	 * @return string|bool rules for the field, false of there's no rules
 	 */
 	protected static function _rules($name) {
 		if(isset(static::$_rules[$name]))
