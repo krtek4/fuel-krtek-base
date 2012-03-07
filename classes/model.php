@@ -275,7 +275,7 @@ abstract class Model_Base extends \Model_Crud {
 		}
 
 		try {
-			$instances[$model]->save($instances);
+			$status = $instances[$model]->save($instances);
 		} catch(Exception $e) {
 			\Fuel\Core\Log::error($e);
 			return false;
@@ -284,7 +284,7 @@ abstract class Model_Base extends \Model_Crud {
 		$called = get_called_class();
 		if($model != $called && $called != get_class() && isset($instances[$called]))
 			$model = $called; // if possible try to return an instance of the called class.
-		return $instances[$model];
+		return $status ? $instances[$model] : false;
 	}
 
 	/**
