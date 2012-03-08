@@ -509,6 +509,7 @@ abstract class Model_Base extends \Model_Crud {
 	 *
 	 * @param Fieldset $fieldset
 	 * @param bool $with_parent Also get parents and populate their fields aswell
+	 * @return Fieldset return the $fieldset to allow chaining
 	 */
 	public function populate($fieldset, $with_parent = true) {
 		$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
@@ -525,6 +526,8 @@ abstract class Model_Base extends \Model_Crud {
 				if($parent)
 					$parent->populate($fieldset, $with_parent);
 			}
+
+		return $fieldset;
 	}
 
 	/**
