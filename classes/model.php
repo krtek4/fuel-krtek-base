@@ -313,7 +313,7 @@ abstract class Model_Base extends \Model_Crud {
 		foreach($fields_per_class as $class => $fields) {
 			$instances[$class] = null;
 			$class_id = \Input::post(static::_field_name(static::primary_key(), $class));
-			if(! is_null($class_id)) { // we're doing an update
+			if(! empty($class_id)) { // we're doing an update
 				$instances[$class] = $class::find_by_pk($class_id);
 				$instances[$class]->from_array($fields);
 			} else { // it is a creation
