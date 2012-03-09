@@ -512,7 +512,9 @@ abstract class Model_Base extends \Model_Crud {
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
 	public function populate($fieldset, $with_parent = true) {
-		$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
+		if(isset($this->{static::primary_key()}))
+			$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
+			
 		foreach($this->to_array() as $name => $value) {
 			$field_name = static::_field_name($name);
 			$field = $fieldset->field($field_name);
