@@ -82,6 +82,16 @@ abstract class ViewModel_Base extends \ViewModel {
 		foreach($model as $key => $value)
 			$this->{$key} = $value;
 	}
+
+	/**
+	 * Do a HMVC request and set the variable $name with it's content
+	 *
+	 * @param string $name The name of the variable
+	 * @param string $url The HMVC url
+	 */
+	protected function hmvc($name, $url) {
+		$this->set($name, \Request::forge($url)->execute()->response()->__toString(), false);
+	}
 }
 
 ?>
