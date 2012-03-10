@@ -322,6 +322,7 @@ abstract class Model_Base extends \Model_Crud {
 				$instances[$class] = $class::forge($fields);
 			}
 			if(! $instances[$class]) {
+				\Fuel\Core\Log::error('Unable to find '.$class.' in instances.');
 				return false;
 			}
 		}
@@ -459,6 +460,8 @@ abstract class Model_Base extends \Model_Crud {
 
 		try {
 			$status = self::_do_save($instances);
+			if(! $status)
+				\Fuel\Core\Log::error('Validation failed : '.$this->validation()->show_errors());
 		} catch(Exception $e) {
 			\Fuel\Core\DB::rollback_transaction();
 			throw $e;
