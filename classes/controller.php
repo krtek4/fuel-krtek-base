@@ -25,15 +25,14 @@ abstract class Controller_Base extends \Controller_Template {
 	protected $auto_process = true;
 
 	/**
+	 * Do some ACL checking based on whitelisting (see chauveauth in config)
 	 * Process a fieldset if POST information were sent.
-	 * Set auto_render to false.
 	 */
 	public function before() {
 		if(! Acl::controller_access($this->request->controller, $this->request->action))
 			throw new HttpForbiddenException();
 
 		parent::before();
-		$this->auto_render = false;
 
 		if(\Input::method() == 'POST' && $this->auto_process)
 			$this->process_fieldset();
@@ -91,17 +90,15 @@ abstract class Controller_Base extends \Controller_Template {
 	 */
 	final protected function content($content, $title = null) {
 		if(! $this->is_templated())
-			$this->response->body = $content;
+			$this->template = $content;
 		else {
 			if(is_null($title))
 				throw new Exception("Title must be set !");
 
 			$this->template->title = $title;
 			$this->template->content = $content;
-			$this->response->body = $this->template;
 		}
 	}
-
 }
 
 ?>
