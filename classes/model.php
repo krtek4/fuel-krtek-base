@@ -350,14 +350,16 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param array $fields (by reference) list of processed fields
 	 */
 	private static function _process_fieldset_input($model, $definition, array &$fields, array $data) {
-		$fields[$model] = array();
+		if(! isset($fields[$model]))
+				$fields[$model] = array();
+
 		foreach($model::_fieldset($definition) as $field) {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
 				$name = self::_field_name($field, $model);
 				$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
-				$fields[$model][$field] = \Input::post($name, \Arr::get($data, $name, $default));
-
+				$value = \Input::post($name, \Arr::get($data, $name, $default));
+				$fields[$model][$field] = $value;
 			} else {
 				switch($info[0]) {
 					case 'extend':
