@@ -272,7 +272,9 @@ abstract class Model_Base extends \Model_Crud {
 	 * @return array attributes for the field
 	 */
 	protected static function _attributes($name) {
-		return static::$_attributes[$name];
+		if(isset(static::$_attributes[$name]))
+			return static::$_attributes[$name];
+		return array();
 	}
 
 	/**
