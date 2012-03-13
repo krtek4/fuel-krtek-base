@@ -35,6 +35,11 @@ abstract class Model_Base extends \Model_Crud {
 //	protected static $_parent = null;
 
 	/**
+	 * @var array configuration for file uploading, merge with the default config
+	 */
+	protected static $_upload_config = array();
+
+	/**
 	 * Count all row in the table where the column has the provided value.
 	 *
 	 * @param string Column name
@@ -176,7 +181,10 @@ abstract class Model_Base extends \Model_Crud {
 
 		$attributes = static::_attributes($field);
 
-		if(substr($field, -3) == '_id' && $attributes['type'] == 'select') {
+		if($attributes['type'] == 'file') {
+			$config = $fieldset->get_config('form_attributes', array()) + array('enctype' => 'multipart/form-data');
+			$fieldset->set_config('form_attributes', $config);
+		} else if(substr($field, -3) == '_id' && $attributes['type'] == 'select') {
 			if(isset($attributes['callback'])) {
 				$callback = $attributes['callback'];
 				unset($attributes['callback']);
@@ -300,8 +308,29 @@ abstract class Model_Base extends \Model_Crud {
 		foreach($data as $k => $v)
 			$data[$k] = \Input::post($k, $data[$k]);
 
-		if(! $model::fieldset($definition)->validation()->run($data))
+
+		\Fuel\Core\Upload::process($model::$_upload_config);
+		if(\Fuel\Core\Upload::is_valid()) {
+			\Fuel\Core\Upload::save();
+
+			foreach(\Fuel\Core\Upload::get_files() as $file) {
+				$data[$file['field']] = '/'.$file['saved_to'].$file['saved_as'];
+			}
+		}
+		$upload_errors = \Fuel\Core\Upload::get_errors();
+		if(! empty($upload_errors)) {
+			foreach($upload_errors as $errors) {
+				foreach($errors['errors'] as $error) {
+					\Messages\Messages::instance()->message('error', $error['message']);
+				}
+			}
 			return false;
+		}
+
+		if(! $model::fieldset($definition)->validation()->run($data)) {
+			var_dump($model::fieldset($definition)->validation()->show_errors());
+			return false;
+		}
 
 		if(empty($model))
 			throw new Model_Exception('No model provided, impossible to process fieldset.');
@@ -521,7 +550,7 @@ abstract class Model_Base extends \Model_Crud {
 	public function populate($fieldset, $with_parent = true) {
 		if(isset($this->{static::primary_key()}))
 			$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
-			
+
 		foreach($this->to_array() as $name => $value) {
 			$field_name = static::_field_name($name);
 			$field = $fieldset->field($field_name);
