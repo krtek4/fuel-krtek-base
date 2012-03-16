@@ -123,7 +123,7 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	protected static function _process_fieldset_definition($fieldset, $name) {
 		foreach(static::_fieldset($name) as $field)
-			self::_process_field($fieldset, $field);
+			self::_process_field($fieldset, $field, $name);
 	}
 
 	/**
@@ -141,12 +141,13 @@ abstract class Model_Base extends \Model_Crud {
 	 *
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
 	 * @param string $field Field definition
+	 * @param string $definition_name the fieldset definition name
 	 * @return mixed irrelevant
 	 */
-	protected static function _process_field($fieldset, $field) {
+	protected static function _process_field($fieldset, $field, $definition_name) {
 		$info = explode(':', $field, 2);
 		if(count($info) == 1)
-			return self::_add_field($fieldset, $field);
+			return self::_add_field($fieldset, $field, $definition_name);
 
 		switch($info[0]) {
 			case 'extend':
@@ -154,7 +155,7 @@ abstract class Model_Base extends \Model_Crud {
 				return self::_process_fieldset_definition($fieldset, $info[1]);
 			case 'special':
 				// add this special field
-				return self::_add_special_field($fieldset, $info[1]);
+				return self::_add_special_field($fieldset, $info[1], $definition_name);
 			default:
 				// first "parameter" is considered like a model classname, second "parameter" is the
 				// definition name in this other model class.
@@ -166,20 +167,21 @@ abstract class Model_Base extends \Model_Crud {
 	 * Add the field with the given name to the fieldset.
 	 *
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
+	 * @param string $definition_name the fieldset definition name
 	 * @param string $field Field definition
 	 */
-	protected static function _add_field($fieldset, $field) {
-		$label = static::_labels($field);
+	protected static function _add_field($fieldset, $field, $definition_name) {
+		$label = static::_labels($field, $definition_name);
 		if(! $label)
 			throw new Model_Exception ('No label found for '.$field);
 
-		$rules = static::_rules($field);
+		$rules = static::_rules($field, $definition_name);
 		if($rules)
 			$f = $fieldset->validation()->add_field(self::_field_name($field), $label, $rules);
 		else
 			$f = $fieldset->validation()->add(self::_field_name($field), $label);
 
-		$attributes = static::_attributes($field);
+		$attributes = static::_attributes($field, $definition_name);
 
 		if($attributes['type'] == 'file') {
 			$config = $fieldset->get_config('form_attributes', array()) + array('enctype' => 'multipart/form-data');
@@ -213,9 +215,10 @@ abstract class Model_Base extends \Model_Crud {
 	 *
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
 	 * @param string $field Field definition
+	 * @param string $definition_name the fieldset definition name
 	 */
-	protected static function _add_special_field($fieldset, $field) {
-		$label = static::_labels($field);
+	protected static function _add_special_field($fieldset, $field, $definition_name) {
+		$label = static::_labels($field, $definition_name);
 		$fieldset->{$field}($label);
 	}
 
@@ -253,9 +256,10 @@ abstract class Model_Base extends \Model_Crud {
 	 * Return the rules for the given field name.
 	 *
 	 * @param string $name the field name
+	 * @param string $definition_name the fieldset definition name
 	 * @return string|bool rules for the field, false of there's no rules
 	 */
-	protected static function _rules($name) {
+	protected static function _rules($name, $definition_name) {
 		if(isset(static::$_rules[$name]))
 			return static::$_rules[$name];
 		return false;
@@ -265,9 +269,10 @@ abstract class Model_Base extends \Model_Crud {
 	 * Return the label for the given field name.
 	 *
 	 * @param string $name the field name
+	 * @param string $definition_name the fieldset definition name
 	 * @return string|bool label for the field, false if there's no label
 	 */
-	protected static function _labels($name) {
+	protected static function _labels($name, $definition_name) {
 		if(isset(static::$_labels[$name]))
 			return static::$_labels[$name];
 		return false;
@@ -277,9 +282,10 @@ abstract class Model_Base extends \Model_Crud {
 	 * Return the attributes for the given field name.
 	 *
 	 * @param string $name the field name
+	 * @param string $definition_name the fieldset definition name
 	 * @return array attributes for the field
 	 */
-	protected static function _attributes($name) {
+	protected static function _attributes($name, $definition_name) {
 		if(isset(static::$_attributes[$name]))
 			return static::$_attributes[$name];
 		return array();
