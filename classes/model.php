@@ -446,6 +446,9 @@ abstract class Model_Base extends \Model_Crud {
 	 */
 	private function _do_save(array &$instances) {
 		$r_parents = $this->_save_parents($instances);
+		if($r_parents === false)
+			return false;
+
 		$r_this = parent::save();
 		return self::_combine_save_results($r_this, $r_parents);
 	}
