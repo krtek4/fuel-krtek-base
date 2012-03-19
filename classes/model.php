@@ -333,10 +333,8 @@ abstract class Model_Base extends \Model_Crud {
 			return false;
 		}
 
-		if(! $model::fieldset($definition)->validation()->run($data)) {
-			var_dump($model::fieldset($definition)->validation()->show_errors());
+		if(! $model::fieldset($definition)->validation()->run($data))
 			return false;
-		}
 
 		if(empty($model))
 			throw new Model_Exception('No model provided, impossible to process fieldset.');

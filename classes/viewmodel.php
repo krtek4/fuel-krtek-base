@@ -63,7 +63,7 @@ abstract class ViewModel_Base extends \ViewModel {
 	public function __call($name, $arguments) {
 		// only all magic call of the method passed to the ViewModel
 		if($name !== $this->_method)
-			throw new ErrorException('Call to undefined method '.get_called_class().'::'.$name.'()');
+			throw new \Exception('Call to undefined method '.get_called_class().'::'.$name.'()');
 		if(method_exists($this, $name))
 				return call_user_func_array(array($this, $name), $arguments);
 	}
