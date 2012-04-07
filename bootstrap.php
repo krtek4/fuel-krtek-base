@@ -14,7 +14,11 @@
  * @link https://github.com/krtek4/fuel-krtek-base
  */
 
-Autoloader::add_classes(array(
+Fuel\Core\Autoloader::add_core_namespace('Base');
+
+Fuel\Core\Autoloader::add_classes(array(
+	'Base\\DBUtil' => __DIR__.'/classes/dbutil.php',
+	'Base\\Migration' => __DIR__.'/classes/migration.php',
 	'Base\\Model_Base' => __DIR__.'/classes/model.php',
 	'Base\\Controller_Base' => __DIR__.'/classes/controller.php',
 	'Base\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
