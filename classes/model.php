@@ -438,18 +438,19 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Does the actual saving job (parents and current model).
 	 *
+	 * @param bool $validate  wether to validate the input
 	 * @param array $instances Array of instances of various parents model with the form 'Model_Name' => instance
 	 * @return array|int|bool
 	 *		false if the validation failed
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
-	private function _do_save(array &$instances) {
+	private function _do_save($validate, array &$instances) {
 		$r_parents = $this->_save_parents($instances);
 		if($r_parents === false)
 			return false;
 
-		$r_this = parent::save();
+		$r_this = parent::save($validate);
 		return self::_combine_save_results($r_this, $r_parents);
 	}
 
@@ -485,6 +486,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * Wraps the saving process in transaction is asked, the actual job is done by _do_save().
 	 * The parents defined in the $_parent static variable are also saved.
 	 *
+	 * @param bool $validate  wether to validate the input
 	 * @param array $instances Array of instances of various parents model with the form 'Model_Name' => instance
 	 * @param bool $transaction Do we use transaction ?
 	 * @return array|int|bool
@@ -492,12 +494,12 @@ abstract class Model_Base extends \Model_Crud {
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
-	public function save(array &$instances = array(), $transaction = true) {
+	public function save($validate = true, array &$instances = array(), $transaction = true) {
 		if($transaction)
 			\Fuel\Core\DB::start_transaction();
 
 		try {
-			$status = self::_do_save($instances);
+			$status = self::_do_save($validate, $instances);
 			if(! $status)
 				\Fuel\Core\Log::error('Validation failed : '.$this->validation()->show_errors());
 		} catch(Exception $e) {
@@ -578,7 +580,7 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Overridden to add access control based on action type
 	 */
-	protected function pre_update($query) {
+	protected function pre_update(&$query) {
 		if(! Acl::model_access($this, 'update'))
 			throw new HttpForbiddenException();
 		return parent::pre_update($query);
@@ -587,7 +589,7 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Overridden to add access control based on action type
 	 */
-	protected function pre_delete($query) {
+	protected function pre_delete(&$query) {
 		if(! Acl::model_access($this, 'delete'))
 			throw new HttpForbiddenException();
 		return parent::pre_delete($query);
@@ -596,7 +598,7 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Overridden to add access control based on action type
 	 */
-	protected function pre_save($query) {
+	protected function pre_save(&$query) {
 		if(! Acl::model_access($this, 'save'))
 			throw new HttpForbiddenException();
 		return parent::pre_save($query);
@@ -605,7 +607,7 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Overridden to add access control based on action type
 	 */
-	protected static function pre_find($query) {
+	protected static function pre_find(&$query) {
 		if(! Acl::model_access(get_called_class(), 'find'))
 			throw new HttpForbiddenException();
 		return parent::pre_find($query);
