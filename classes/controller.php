@@ -29,7 +29,7 @@ abstract class Controller_Base extends \Controller_Template {
 	 * Process a fieldset if POST information were sent.
 	 */
 	public function before() {
-		if(\Fuel\Core\Package::loaded('Auth') && ! Acl::controller_access($this->request->controller, $this->request->action))
+		if(! Acl::controller_access($this->request->controller, $this->request->action))
 			throw new HttpForbiddenException();
 
 		parent::before();

@@ -44,6 +44,9 @@ class Acl {
 	 * @return bool Wheter the user has access or not
 	 */
 	private static function _check_access($condition) {
+		if(! \Fuel\Core\Package::loaded('auth'))
+			return true;
+
 		$user = \Auth\Auth::instance()->has_access($condition);
 		$group = \Auth\Auth::group()->has_access($condition);
 		return $user || $group;
