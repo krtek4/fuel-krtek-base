@@ -48,7 +48,7 @@ class Acl {
 			return true;
 
 		$user = \Auth\Auth::instance()->has_access($condition);
-		$group = \Auth\Auth::group()->has_access($condition);
+		$group = \Auth\Auth::group()->has_access($condition, null);
 		return $user || $group;
 	}
 
