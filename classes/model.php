@@ -495,6 +495,9 @@ abstract class Model_Base extends \Model_Crud {
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	public function save($validate = true, array &$instances = array(), $transaction = true) {
+		// disable transaction mode if we are already in one
+		$transaction = $transaction && \Database_Connection::instance(null)->in_transaction();
+
 		if($transaction)
 			\Fuel\Core\DB::start_transaction();
 
