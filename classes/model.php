@@ -200,10 +200,10 @@ abstract class Model_Base extends \Model_Crud {
 		}
 
 		// Set certain types through specific setter
-		foreach (array('label', 'type', 'value', 'options') as $prop)
-			if (array_key_exists($prop, $attributes)) {
-				$f->{'set_'.$prop}($attributes[$prop]);
-				unset($attributes[$prop]);
+		foreach ($attributes as $attr => $val)
+			if (method_exists($f, $method = 'set_'.$attr)) {
+				$f->{$method}($val);
+				unset($attributes[$attr]);
 			}
 		$f->set_attribute($attributes);
 	}
