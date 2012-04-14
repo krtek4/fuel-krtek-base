@@ -361,7 +361,7 @@ abstract class Model_Base extends \Model_Crud {
 		}
 
 		try {
-			$status = $instances[$model]->save($instances);
+			$status = $instances[$model]->save(true, $instances);
 		} catch(Exception $e) {
 			\Fuel\Core\Log::error($e);
 			return false;
@@ -417,7 +417,7 @@ abstract class Model_Base extends \Model_Crud {
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
-	private function _save_parents(array &$instances) {
+	private function _save_parents($validate, array &$instances) {
 		$result = 0;
 		if(! isset(static::$_parent))
 			return $result;
@@ -426,7 +426,7 @@ abstract class Model_Base extends \Model_Crud {
 			if(! isset($instances[$class]))
 				continue;
 
-			if(($r_temp = $instances[$class]->_do_save($instances)) === false)
+			if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
 				return false;
 
 			$this->{$fk} = $instances[$class]->{$class::primary_key()};
@@ -446,7 +446,7 @@ abstract class Model_Base extends \Model_Crud {
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	private function _do_save($validate, array &$instances) {
-		$r_parents = $this->_save_parents($instances);
+		$r_parents = $this->_save_parents($validate, $instances);
 		if($r_parents === false)
 			return false;
 
