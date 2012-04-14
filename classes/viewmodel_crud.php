@@ -15,7 +15,7 @@ namespace Base;
  */
 class View_Crud extends ViewModel_Base {
 	public function render() {
-		if(get_called_class() == 'View_Crud') {
+		if(get_called_class() == 'Base\\View_Crud') {
 			$var_name = $this->var_name;
 			if(! isset($this->{$var_name}))
 				$var_name = \Fuel\Core\Inflector::pluralize($var_name);
@@ -30,7 +30,7 @@ class View_Crud extends ViewModel_Base {
 		$model_name = $this->model;
 		$var_name = $this->var_name;
 
-		$this->form = $model_name::fieldset('default')->repopulate();
+		$this->form = $model_name::fieldset('admin')->repopulate();
 		$this->{$var_name}->populate($this->form);
 	}
 }
