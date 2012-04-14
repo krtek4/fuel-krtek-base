@@ -23,4 +23,7 @@ Fuel\Core\Autoloader::add_classes(array(
 	'Base\\Controller_Base' => __DIR__.'/classes/controller.php',
 	'Base\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
 	'Base\\Acl' => __DIR__.'/classes/acl.php',
+
+	'Base\\Controller_Crud' => __DIR__.'/classes/controller_crud.php',
+	'Base\\View_Crud' => __DIR__.'/classes/viewmodel_crud.php',
 ));

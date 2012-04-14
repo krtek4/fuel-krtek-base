@@ -1,0 +1,27 @@
+<table class="listing">
+	<thead>
+		<tr>
+			<td>Id</td>
+			<td>Description</td>
+			<td>Action</td>
+		</tr>
+	</thead>
+	<tbody>
+	{{#data}}
+		<tr>
+			<td><a href="/{{controller}}/view/{{id}}">{{id}}</a></td>
+			<td>{{{admin_description}}}</td>
+			<td class="actions">
+				<a class="icon detail" href="/{{controller}}/view/{{id}}">detail</a>
+				<a class="icon edit" href="/{{controller}}/edit/{{id}}">edit</a>
+				<a class="icon delete" href="/{{controller}}/delete/{{id}}">delete</a>
+			</td>
+		</tr>
+	{{/data}}
+	{{^data}}
+		<tr>
+			<td colspan="4">Nothing to show for now</td>
+		</tr>
+	{{/data}}
+	</tbody>
+</table>
