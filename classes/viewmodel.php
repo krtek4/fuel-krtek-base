@@ -33,7 +33,7 @@ abstract class ViewModel_Base extends \ViewModel {
 	 */
 	protected function __construct($method, $auto_filter = null) {
 		if(is_null($this->_view_folder))
-			$this->_view_folder = strtolower(str_replace('View_', '', get_called_class()));
+			$this->_view_folder = strtolower(str_replace('View_', '', \Fuel\Core\Inflector::denamespace(get_called_class())));
 
 		// registring method before it's done in the parent constructor
 		// because set_view is called before and we need the method name.
