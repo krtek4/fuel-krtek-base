@@ -43,9 +43,18 @@ abstract class Controller_Crud extends Controller_Base {
 		\Lang::load('controller_crud', 'controller_crud');
 
 		if(is_null(static::$_friendly_name))
-			static::$_friendly_name = \Fuel\Core\Inflector::singularize(strtolower(str_replace('Controller_', '', get_called_class())));
+			static::$_friendly_name = static::_class_to_name();
 		if(is_null(static::$_model))
 			static::$_model = 'Model_'.  ucfirst(static::$_friendly_name);
+	}
+
+	/**
+	 * Transform the class name to a usable friendly name for this class.
+	 *
+	 * @return string the friendly name to use if none is set.
+	 */
+	protected static function _class_to_name() {
+		return \Fuel\Core\Inflector::singularize(strtolower(str_replace('Controller_', '', get_called_class())));
 	}
 
 	/**
@@ -83,13 +92,25 @@ abstract class Controller_Crud extends Controller_Base {
 	}
 
 	/**
+	 * @return string The base url for all internal urls
+	 */
+	private function _base_url() {
+		return static::_url_prefix().'/'.static::_view();
+	}
+
+	/**
+	 * @return string The prefix to add before all internal urls.
+	 */
+	protected function _url_prefix() { return ''; }
+
+	/**
 	 * @param string $action the action to point to
 	 * @return string url internal to the class linking to the given action
 	 */
 	private function _internal_url($action = null, $param = array()) {
 		if(is_null($action))
 			$action = $this->default_action;
-		return '/'.static::_view().'/'.$action.'/'.implode('/', $param);
+		return static::_base_url().'/'.$action.'/'.implode('/', $param);
 	}
 
 	/**
@@ -138,6 +159,7 @@ abstract class Controller_Crud extends Controller_Base {
 		$vm->set('controller', static::_view());
 		$vm->set('model', static::$_model);
 		$vm->set('var_name', static::_var_name());
+		$vm->set('base_url', static::_base_url());
 		return $this->content($vm, self::_title());
 	}
 

@@ -9,12 +9,12 @@
 	<tbody>
 	{{#data}}
 		<tr>
-			<td><a href="/{{controller}}/view/{{id}}">{{id}}</a></td>
+			<td><a href="{{base_url}}/view/{{id}}">{{id}}</a></td>
 			<td>{{{admin_description}}}</td>
 			<td class="actions">
-				<a class="icon detail" href="/{{controller}}/view/{{id}}">detail</a>
-				<a class="icon edit" href="/{{controller}}/edit/{{id}}">edit</a>
-				<a class="icon delete" href="/{{controller}}/delete/{{id}}">delete</a>
+				<a class="icon detail" href="{{base_url}}/view/{{id}}">detail</a>
+				<a class="icon edit" href="{{base_url}}/edit/{{id}}">edit</a>
+				<a class="icon delete" href="{{base_url}}/delete/{{id}}">delete</a>
 			</td>
 		</tr>
 	{{/data}}
