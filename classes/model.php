@@ -272,7 +272,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $definition_name the fieldset definition name
 	 * @return string|bool label for the field, false if there's no label
 	 */
-	protected static function _labels($name, $definition_name) {
+	public static function _labels($name, $definition_name) {
 		if(isset(static::$_labels[$name]))
 			return static::$_labels[$name];
 		return false;
@@ -285,7 +285,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $definition_name the fieldset definition name
 	 * @return array attributes for the field
 	 */
-	protected static function _attributes($name, $definition_name) {
+	public static function _attributes($name, $definition_name) {
 		if(isset(static::$_attributes[$name]))
 			return static::$_attributes[$name];
 		return array();
