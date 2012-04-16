@@ -147,7 +147,7 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @param bool $plural wheter we have one more more instances
 	 * @return mixed content
 	 */
-	private function _content($action, $instance = null, $plural = false) {
+	protected function _content($action, $instance = null, $plural = false) {
 		try {
 			$vm = \Fuel\Core\ViewModel::forge(self::_view(), $action);
 		} catch(\OutOfBoundsException $e) {
