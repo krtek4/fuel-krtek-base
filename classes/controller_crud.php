@@ -107,7 +107,7 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @param string $action the action to point to
 	 * @return string url internal to the class linking to the given action
 	 */
-	private function _internal_url($action = null, $param = array()) {
+	protected function _internal_url($action = null, $param = array()) {
 		if(is_null($action))
 			$action = $this->default_action;
 		return static::_base_url().'/'.$action.'/'.implode('/', $param);
@@ -122,6 +122,15 @@ abstract class Controller_Crud extends Controller_Base {
 	 */
 	protected static function nav($url, $title, $attr = array()) {
 		self::$nav[] = array('url' => $url, 'title' => $title, 'attr' => $attr);
+	}
+
+	/**
+	 * Navigation to show every time
+	 */
+	protected function global_nav() {
+		static::nav($this->_internal_url('list'), static::get_message('list'), array('class' => 'text_icon list'));
+		static::nav($this->_internal_url('search'),  static::get_message('search'), array('class' => 'text_icon search'));
+		static::nav($this->_internal_url('add'),  static::get_message('add'), array('class' => 'text_icon add'));
 	}
 
 	/**
@@ -212,10 +221,7 @@ abstract class Controller_Crud extends Controller_Base {
 	 * Set the contextual navigation of this controller
 	 */
 	public function before() {
-		static::nav($this->_internal_url('list'), static::get_message('list'), array('class' => 'text_icon list'));
-		static::nav($this->_internal_url('search'),  static::get_message('search'), array('class' => 'text_icon search'));
-		static::nav($this->_internal_url('add'),  static::get_message('add'), array('class' => 'text_icon add'));
-
+		$this->global_nav();
 		return parent::before();
 	}
 
