@@ -194,9 +194,10 @@ abstract class Model_Base extends \Model_Crud {
 				$callback = array('Model_'.ucfirst(substr($field, 0, -3)), 'find_all');
 
 			$attributes['options'] = array();
-			foreach(call_user_func($callback) as $rows) {
-				$attributes['options'][$rows['id']] = $rows->select_name();
-			}
+			$rows = call_user_func($callback);
+			if($rows)
+				foreach($rows as $row)
+					$attributes['options'][$row['id']] = $row->select_name();
 		}
 
 		// Set certain types through specific setter
