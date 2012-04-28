@@ -573,9 +573,11 @@ abstract class Model_Base extends \Model_Crud {
 
 		if($with_parent && isset(static::$_parent))
 			foreach(static::$_parent as $class => $fk) {
-				$parent = $class::find_by_pk($this->{$fk});
-				if($parent)
-					$parent->populate($fieldset, $with_parent);
+				if(isset($this->{$fk})) {
+					$parent = $class::find_by_pk($this->{$fk});
+					if($parent)
+						$parent->populate($fieldset, $with_parent);
+				}
 			}
 
 		return $fieldset;
