@@ -644,6 +644,57 @@ abstract class Model_Base extends \Model_Crud {
 			$this->{$key} = $value;
 	}
 
+	/*
+	 * Retrieve a reference to a model or an array of referenced models.
+	 * The name is transformed to a model name and then we try to retrieve
+	 * instances based on the reference declared on the class.
+	 *
+	 * @param   string  $name  the name of the model we want to retrieve
+	 * @return  mixed   Based on static::$return_type
+	 * @throws Model_Exception
+	 */
+	public function magic_relation($name) {
+		$model_name = 'Model_'.ucfirst(str_replace('_', '', \Inflector::classify($name)));
+
+		if(isset(static::$_reference_one) && isset(static::$_reference_one[$model_name])) {
+			$field = static::$_reference_one[$model_name];
+			$method = 'find_by_pk';
+		}
+
+		if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
+			$field = 'id';
+			$method = 'find_by_'.static::$_referenced_by[$model_name];
+		}
+
+		if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
+			$field = static::$_reference_one[$model_name]['lk'];
+			$method = 'find_many';
+		}
+
+		if(isset($method)) {
+			$id = $this->{$field};
+			return call_user_func_array($model_name.'::'.$method, array($id));
+		}
+
+		throw new Model_Exception('No relation found for this name : '.$name.' '.$model_name);
+	}
+
+	/**
+	 * Add methods to retrieve a reference model or an array of referenced models.
+	 *
+	 * @param   string  $name  The method name
+	 * @param   string  $args  The method args
+	 * @return  mixed   Based on static::$return_type
+	 * @throws  BadMethodCallException
+	 */
+	public function __call($name, $args) {
+		try {
+			return $this->magic_relation($name);
+		} catch(Model_Exception $e) {
+			throw new \BadMethodCallException($e->message);
+		}
+	}
+
 	/**
 	 * Populate known fields of the fieldset with value from this
 	 * model instance.
