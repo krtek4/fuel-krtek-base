@@ -95,6 +95,43 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
+	 * Retrieve a list of id for the current model which reference the the foreign
+	 * model through the association table defined in $_reference_many.
+	 *
+	 * @param string $model referenced model name
+	 * @param int $id id of the foreign key in the association table
+	 * @return array id to retrieve from the database
+	 */
+	protected static function ids_for_find_many($model, $id) {
+		$data = static::$_reference_many[$model];
+
+		$sql = 'SELECT '.$data['lk'].' FROM '.$data['table'].' WHERE '.$data['fk'].' = '.$id;
+		$result = \DB::query($sql)->execute()->as_array();
+
+		$ids = array();
+		foreach($result as $r) {
+			$ids[] = $r[$data['lk']];
+		}
+		return $ids;
+	}
+
+	/**
+	 * Retrieve a list of the current model instances which are related to the foreign
+	 * model through an association table and the given column.
+	 *
+	 * @param string $column foreign column in the association table
+	 * @param int $id foreign id
+	 * @return array Model instances
+	 */
+	public static function find_many_by($column, $id) {
+		$name = 'Model_'.ucfirst(substr($column, 0, -3));
+
+		$ids = static::ids_for_find_many($name, $id);
+
+		throw new Exception('not implemented');
+	}
+
+	/**
 	 * Add magic methods to count by columns
 	 *
 	 * @param   string  $name  The method name
@@ -106,6 +143,8 @@ abstract class Model_Base extends \Model_Crud {
 	{
 		if (strncmp($name, 'count_by_', 9) === 0)
 			return static::count_by(substr($name, 9), reset($args));
+		if (strncmp($name, 'find_many_by_', 13) === 0)
+			return static::find_many_by(substr($name, 13), reset($args));
 		return parent::__callStatic($name, $args);
 	}
 
@@ -503,6 +542,7 @@ abstract class Model_Base extends \Model_Crud {
 				foreach($references[$model] as $id)
 					$values[] = '('.$this->id.', '.$id.') ';
 
+				$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->id.'; ';
 				$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
 			}
 
@@ -665,21 +705,20 @@ abstract class Model_Base extends \Model_Crud {
 	 * @throws Model_Exception
 	 */
 	public function magic_relation($name) {
-		$model_name = 'Model_'.ucfirst(str_replace('_', '', \Inflector::classify($name)));
+		if(substr($name, 0, 6) == 'Model_')
+			$model_name = $name;
+		else
+			$model_name = 'Model_'.ucfirst(str_replace('_', '', \Inflector::classify($name)));
 
 		if(isset(static::$_reference_one) && isset(static::$_reference_one[$model_name])) {
 			$field = static::$_reference_one[$model_name];
 			$method = 'find_by_pk';
-		}
-
-		if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
+		} else if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
 			$field = 'id';
 			$method = 'find_by_'.static::$_referenced_by[$model_name];
-		}
-
-		if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
-			$field = static::$_reference_one[$model_name]['lk'];
-			$method = 'find_many';
+		} else if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
+			$field = 'id';
+			$method = 'find_many_by_'.static::$_reference_many[$model_name]['lk'];
 		}
 
 		if(isset($method)) {
@@ -738,7 +777,12 @@ abstract class Model_Base extends \Model_Crud {
 
 			if(isset(static::$_reference_many))
 				foreach(static::$_reference_many as $class => $data) {
-					// FIXME: implement this
+					$ids = $class::ids_for_find_many(get_called_class(), $this->id);
+
+					$field_name = static::_field_name($data['fk'], $hierarchy);
+					$field = $fieldset->field($field_name);
+					if($field)
+						$field->set_value(\Input::post($field_name, $ids), true);
 				}
 		}
 
