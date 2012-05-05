@@ -30,9 +30,19 @@ abstract class Model_Base extends \Model_Crud {
 //	protected static $_fieldsets = array();
 
 //	/**
-//	 * @var array reprensation of various parent of this class with the form 'Model_Name' => 'FK_column'
+//	 * @var array Models this class references with the form 'Model_Name' => 'FK column'
 //	 */
-//	protected static $_parent = null;
+//	protected static $_reference_one = null;
+
+//	/**
+//	 * @var array Models this class is linked to by an association table 'Model_Name' => 'association table'
+//	 */
+//	protected static $_reference_many = null;
+
+//	/**
+//	 * @var array Models referencing this class with the form 'Model_Name' => 'FK column on the other table'
+//	 */
+//	protected static $_referenced_by = null;
 
 	/**
 	 * @var array configuration for file uploading, merge with the default config
@@ -156,6 +166,10 @@ abstract class Model_Base extends \Model_Crud {
 			case 'special':
 				// add this special field
 				return self::_add_special_field($fieldset, $info[1], $definition_name);
+			case 'many':
+				// add a field for ids in a many to many relation
+				$field_name = static::$_reference_many[$info[1]]['fk'];
+				return self::_add_field($fieldset, $field_name, $definition_name);
 			default:
 				// first "parameter" is considered like a model classname, second "parameter" is the
 				// definition name in this other model class.
@@ -186,7 +200,7 @@ abstract class Model_Base extends \Model_Crud {
 		if($attributes['type'] == 'file') {
 			$config = $fieldset->get_config('form_attributes', array()) + array('enctype' => 'multipart/form-data');
 			$fieldset->set_config('form_attributes', $config);
-		} else if(substr($field, -3) == '_id' && $attributes['type'] == 'select') {
+		} else if(substr($field, -3) == '_id' && in_array($attributes['type'], array('select', 'checkbox', 'radio'))) {
 			if(isset($attributes['callback'])) {
 				$callback = $attributes['callback'];
 				unset($attributes['callback']);
@@ -345,6 +359,20 @@ abstract class Model_Base extends \Model_Crud {
 		$fields_per_class = array();
 		self::_process_fieldset_input($model, $definition, $fields_per_class, $data);
 
+		$references = array();
+		if(isset($model::$_reference_many))
+			foreach($fields_per_class as $class => $data) {
+				if(! in_array($class, array_keys($model::$_reference_many)))
+					continue;
+
+				$ids = $data[$model::$_reference_many[$class]['fk']];
+
+				if(! is_array($ids))
+					$ids = array($ids);
+				$references[$class] = $ids;
+				unset($fields_per_class[$class]);
+			}
+
 		$instances = array();
 		foreach($fields_per_class as $class => $fields) {
 			$instances[$class] = null;
@@ -363,6 +391,9 @@ abstract class Model_Base extends \Model_Crud {
 
 		try {
 			$status = $instances[$model]->save(true, $instances);
+
+			$status_tmp = $instances[$model]->_save_reference_many($references);
+			$status = self::_combine_save_results($status, $status_tmp);
 		} catch(Exception $e) {
 			\Fuel\Core\Log::error($e);
 			return false;
@@ -382,6 +413,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $model Base model name
 	 * @param string $definition Base definition name
 	 * @param array $fields (by reference) list of processed fields
+	 * @param array $data default values
 	 */
 	private static function _process_fieldset_input($model, $definition, array &$fields, array $data) {
 		if(! isset($fields[$model]))
@@ -390,10 +422,7 @@ abstract class Model_Base extends \Model_Crud {
 		foreach($model::_fieldset($definition) as $field) {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
-				$name = self::_field_name($field, $model);
-				$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
-				$value = \Input::post($name, \Arr::get($data, $name, $default));
-				$fields[$model][$field] = $value;
+				$fields[$model][$field] = self::_get_field_value($model, $field, $fields, $data);
 			} else {
 				switch($info[0]) {
 					case 'extend':
@@ -401,6 +430,10 @@ abstract class Model_Base extends \Model_Crud {
 						break;
 					case 'special':
 						continue 2; // special field, nothing to do
+					case 'many':
+						$fieldname = $model::$_reference_many[$info[1]]['fk'];
+						$fields[$info[1]][$fieldname] = self::_get_field_value($model, $fieldname, $fields, $data);
+						continue 2;
 					default:
 						$new_model = $info[0]; // inclusion of a definition from another model
 				}
@@ -410,49 +443,93 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
-	 * Save the various parents of the model and then assign the ids to the foreign key column.
+	 * Retrieve the value for the given field from the POST data, the default value passed as a parameter
+	 * or the default values set on the class as a last ressort.
 	 *
-	 * @param array $instances Array of instances of various parents model with the form 'Model_Name' => instance
+	 * @param string $model Base model name
+	 * @param string $field field name
+	 * @param array $data default values
+	 * @return string the value
+	 */
+	private static function _get_field_value($model, $field, $data) {
+		$name = self::_field_name($field, $model);
+		$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
+		$value = \Input::post($name, \Arr::get($data, $name, $default));
+		return $value;
+	}
+
+	/**
+	 * Save the references to other models specified in $_reference_many
+	 *
+	 * @param array $references
+	 * @return boolean
+	 */
+	private function _save_reference_many(array $references) {
+		$result = 0;
+
+		$sql = '';
+		if(isset(static::$_reference_many))
+			foreach(static::$_reference_many as $model => $data) {
+				if(! isset($references[$model]) || ! is_array($references[$model]))
+					continue;
+
+				$values = array();
+				foreach($references[$model] as $id)
+					$values[] = '('.$this->id.', '.$id.') ';
+
+				$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
+			}
+
+		if(! empty($sql))
+			return \DB::query($sql)->execute();
+		else
+			return true;
+	}
+
+	/**
+	 * Save the various references of the model and then assign the ids to the foreign key column.
+	 *
+	 * @param array $instances Array of instances of various references model with the form 'Model_Name' => instance
 	 * @return array|int|bool
 	 *		false if the validation failed
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
-	private function _save_parents($validate, array &$instances) {
+	private function _save_reference_one($validate, array &$instances) {
 		$result = 0;
-		if(! isset(static::$_parent))
+		if(! isset(static::$_reference_one))
 			return $result;
 
-		foreach(static::$_parent as $class => $fk) {
+		foreach(static::$_reference_one as $class => $fk) {
 			if(! isset($instances[$class]))
-				continue;
+					continue;
 
-			if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
-				return false;
+				if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
+					return false;
 
-			$this->{$fk} = $instances[$class]->{$class::primary_key()};
-			$result = self::_combine_save_results($result, $r_temp);
-		}
+				$this->{$fk} = $instances[$class]->{$class::primary_key()};
+				$result = self::_combine_save_results($result, $r_temp);
+			}
 		return $result;
 	}
 
 	/**
-	 * Does the actual saving job (parents and current model).
+	 * Does the actual saving job (_refrence_one and current model).
 	 *
 	 * @param bool $validate  wether to validate the input
-	 * @param array $instances Array of instances of various parents model with the form 'Model_Name' => instance
+	 * @param array $instances Array of instances of various _reference_one model with the form 'Model_Name' => instance
 	 * @return array|int|bool
 	 *		false if the validation failed
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	private function _do_save($validate, array &$instances) {
-		$r_parents = $this->_save_parents($validate, $instances);
-		if($r_parents === false)
+		$result = $this->_save_reference_one($validate, $instances);
+		if($result === false)
 			return false;
 
-		$r_this = parent::save($validate);
-		return self::_combine_save_results($r_this, $r_parents);
+		$result_tmp = parent::save($validate);
+		return self::_combine_save_results($result, $result_tmp);
 	}
 
 	/**
@@ -484,11 +561,11 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
-	 * Wraps the saving process in transaction is asked, the actual job is done by _do_save().
-	 * The parents defined in the $_parent static variable are also saved.
+	 * Wraps the saving process in transaction if asked, the actual job is done by _do_save().
+	 * The references defined in the $_reference_one static variable are also saved.
 	 *
 	 * @param bool $validate  wether to validate the input
-	 * @param array $instances Array of instances of various parents model with the form 'Model_Name' => instance
+	 * @param array $instances Array of instances of various referenced models with the form 'Model_Name' => instance
 	 * @param bool $transaction Do we use transaction ?
 	 * @return array|int|bool
 	 *		false if the validation failed
@@ -557,10 +634,10 @@ abstract class Model_Base extends \Model_Crud {
 	 * model instance.
 	 *
 	 * @param Fieldset $fieldset
-	 * @param bool $with_parent Also get parents and populate their fields aswell
+	 * @param bool $with_references Also get references and populate their fields aswell
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
-	public function populate($fieldset, $with_parent = true) {
+	public function populate($fieldset, $with_references = true) {
 		if(isset($this->{static::primary_key()}))
 			$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
 
@@ -571,12 +648,19 @@ abstract class Model_Base extends \Model_Crud {
 				$field->set_value(\Input::post($field_name, $value), true);
 		}
 
-		if($with_parent && isset(static::$_parent))
-			foreach(static::$_parent as $class => $fk) {
-				$parent = $class::find_by_pk($this->{$fk});
-				if($parent)
-					$parent->populate($fieldset, $with_parent);
-			}
+		if($with_references) {
+			if(isset(static::$_reference_one))
+				foreach(static::$_reference_one as $class => $fk) {
+					$reference = $class::find_by_pk($this->{$fk});
+					if($reference)
+						$reference->populate($fieldset, $with_references);
+				}
+
+			if(isset(static::$_reference_many))
+				foreach(static::$_reference_many as $class => $data) {
+					// FIXME: implement this
+				}
+		}
 
 		return $fieldset;
 	}
