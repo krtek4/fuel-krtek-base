@@ -99,6 +99,18 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
+	 * Add the current table_name to the actual hierarchy and
+	 * return the new value. Must be called each time a processing class
+	 * pass the relay to a child Model.
+	 *
+	 * @param string $actual actual hierarchy string
+	 * @return string new hierarchy string to pass a child.
+	 */
+	public static function update_hierarchy($actual) {
+		return $actual.static::$_table_name.'-';
+	}
+
+	/**
 	 * Create a Fieldset based on the definition corresponding to
 	 * the given name. If the fieldset was already created, return
 	 * this particular instance.
@@ -131,9 +143,9 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
 	 * @param string $name The definition name
 	 */
-	protected static function _process_fieldset_definition($fieldset, $name) {
+	protected static function _process_fieldset_definition($fieldset, $name, $hierarchy = null) {
 		foreach(static::_fieldset($name) as $field)
-			self::_process_field($fieldset, $field, $name);
+			self::_process_field($fieldset, $field, $name, $hierarchy);
 	}
 
 	/**
@@ -154,26 +166,27 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $definition_name the fieldset definition name
 	 * @return mixed irrelevant
 	 */
-	protected static function _process_field($fieldset, $field, $definition_name) {
+	protected static function _process_field($fieldset, $field, $definition_name, $hierarchy) {
 		$info = explode(':', $field, 2);
 		if(count($info) == 1)
-			return self::_add_field($fieldset, $field, $definition_name);
+			return self::_add_field($fieldset, $field, $definition_name, $hierarchy);
 
 		switch($info[0]) {
 			case 'extend':
 				// add the fields from this other definition (name is second "parameter")
-				return self::_process_fieldset_definition($fieldset, $info[1]);
+				return self::_process_fieldset_definition($fieldset, $info[1], $hierarchy);
 			case 'special':
 				// add this special field
 				return self::_add_special_field($fieldset, $info[1], $definition_name);
 			case 'many':
 				// add a field for ids in a many to many relation
 				$field_name = static::$_reference_many[$info[1]]['fk'];
-				return self::_add_field($fieldset, $field_name, $definition_name);
+				return self::_add_field($fieldset, $field_name, $definition_name, $hierarchy);
 			default:
 				// first "parameter" is considered like a model classname, second "parameter" is the
 				// definition name in this other model class.
-				return call_user_func_array(array($info[0], '_process_fieldset_definition'), array($fieldset, $info[1]));
+				$args = array($fieldset, $info[1], static::update_hierarchy($hierarchy));
+				return call_user_func_array(array($info[0], '_process_fieldset_definition'), $args);
 		}
 	}
 
@@ -184,16 +197,16 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $definition_name the fieldset definition name
 	 * @param string $field Field definition
 	 */
-	protected static function _add_field($fieldset, $field, $definition_name) {
+	protected static function _add_field($fieldset, $field, $definition_name, $hierarchy) {
 		$label = static::_labels($field, $definition_name);
 		if(! $label)
 			throw new Model_Exception ('No label found for '.$field);
 
 		$rules = static::_rules($field, $definition_name);
 		if($rules)
-			$f = $fieldset->validation()->add_field(self::_field_name($field), $label, $rules);
+			$f = $fieldset->validation()->add_field(self::_field_name($field, $hierarchy), $label, $rules);
 		else
-			$f = $fieldset->validation()->add(self::_field_name($field), $label);
+			$f = $fieldset->validation()->add(self::_field_name($field, $hierarchy), $label);
 
 		$attributes = static::_attributes($field, $definition_name);
 
@@ -244,9 +257,9 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param string $model name of the model or get_called_class() if null
 	 * @return string the name of the field for the fieldset
 	 */
-	protected static function _field_name($field, $model = null) {
+	protected static function _field_name($field, $hierarchy, $model = null) {
 		$model = is_null($model) ? get_called_class() : $model;
-		return $model::$_table_name.'_'.$field;
+		return $hierarchy.$model::$_table_name.'-'.$field;
 	}
 
 	/**
@@ -317,7 +330,7 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param $data Default value
 	 * @return Model_?|false The created / updated model or false if an error occured
 	 */
-	public static function process_fieldset_input(array $data = array()) {
+	public static function process_fieldset_input(array $data = array(), $hierarchy = null) {
 		if (! \Input::method('POST') && empty($data))
 			return false;
 
@@ -357,12 +370,12 @@ abstract class Model_Base extends \Model_Crud {
 			throw new Model_Exception('No definition provided, impossible to process fieldset.');
 
 		$fields_per_class = array();
-		self::_process_fieldset_input($model, $definition, $fields_per_class, $data);
+		self::_process_fieldset_input($model, $definition, $fields_per_class, $data, $hierarchy);
 
 		$references = array();
 		if(isset($model::$_reference_many))
 			foreach($fields_per_class as $class => $data) {
-				if(! in_array($class, array_keys($model::$_reference_many)))
+				if(! isset($model::$_reference_many[$class]))
 					continue;
 
 				$ids = $data[$model::$_reference_many[$class]['fk']];
@@ -376,7 +389,7 @@ abstract class Model_Base extends \Model_Crud {
 		$instances = array();
 		foreach($fields_per_class as $class => $fields) {
 			$instances[$class] = null;
-			$class_id = \Input::post(static::_field_name(static::primary_key(), $class));
+			$class_id = $fields[$class::primary_key()];
 			if(! empty($class_id)) { // we're doing an update
 				$instances[$class] = $class::find_by_pk($class_id);
 				$instances[$class]->from_array($fields);
@@ -415,14 +428,16 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param array $fields (by reference) list of processed fields
 	 * @param array $data default values
 	 */
-	private static function _process_fieldset_input($model, $definition, array &$fields, array $data) {
+	private static function _process_fieldset_input($model, $definition, array &$fields, array $data, $hierarchy) {
 		if(! isset($fields[$model]))
 				$fields[$model] = array();
+
+		$fields[$model][static::primary_key()] = \Input::post(static::_field_name(static::primary_key(), $hierarchy, $model));
 
 		foreach($model::_fieldset($definition) as $field) {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
-				$fields[$model][$field] = self::_get_field_value($model, $field, $fields, $data);
+				$fields[$model][$field] = self::_get_field_value($model, $field, $data, $hierarchy);
 			} else {
 				switch($info[0]) {
 					case 'extend':
@@ -432,12 +447,12 @@ abstract class Model_Base extends \Model_Crud {
 						continue 2; // special field, nothing to do
 					case 'many':
 						$fieldname = $model::$_reference_many[$info[1]]['fk'];
-						$fields[$info[1]][$fieldname] = self::_get_field_value($model, $fieldname, $fields, $data);
+						$fields[$info[1]][$fieldname] = self::_get_field_value($model, $fieldname, $data, $hierarchy);
 						continue 2;
 					default:
 						$new_model = $info[0]; // inclusion of a definition from another model
 				}
-				self::_process_fieldset_input($new_model, $info[1], $fields, $data);
+				self::_process_fieldset_input($new_model, $info[1], $fields, $data, self::update_hierarchy($hierarchy));
 			}
 		}
 	}
@@ -451,8 +466,8 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param array $data default values
 	 * @return string the value
 	 */
-	private static function _get_field_value($model, $field, $data) {
-		$name = self::_field_name($field, $model);
+	private static function _get_field_value($model, $field, $data, $hierarchy) {
+		$name = self::_field_name($field, $hierarchy, $model);
 		$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
 		$value = \Input::post($name, \Arr::get($data, $name, $default));
 		return $value;
@@ -637,12 +652,14 @@ abstract class Model_Base extends \Model_Crud {
 	 * @param bool $with_references Also get references and populate their fields aswell
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
-	public function populate($fieldset, $with_references = true) {
-		if(isset($this->{static::primary_key()}))
-			$fieldset->hidden(static::_field_name(static::primary_key()), $this->{static::primary_key()});
+	public function populate($fieldset, $with_references = true, $hierarchy = null) {
+		if(isset($this->{static::primary_key()})) {
+			$name = static::_field_name(static::primary_key(), $hierarchy);
+			$fieldset->hidden($name, $this->{static::primary_key()});
+		}
 
 		foreach($this->to_array() as $name => $value) {
-			$field_name = static::_field_name($name);
+			$field_name = static::_field_name($name, $hierarchy);
 			$field = $fieldset->field($field_name);
 			if($field)
 				$field->set_value(\Input::post($field_name, $value), true);
@@ -650,11 +667,12 @@ abstract class Model_Base extends \Model_Crud {
 
 		if($with_references) {
 			if(isset(static::$_reference_one))
-				foreach(static::$_reference_one as $class => $fk) {
-					$reference = $class::find_by_pk($this->{$fk});
-					if($reference)
-						$reference->populate($fieldset, $with_references);
-				}
+				foreach(static::$_reference_one as $class => $fk)
+					if(isset($this->{$fk})) {
+						$reference = $class::find_by_pk($this->{$fk});
+						if($reference)
+							$reference->populate($fieldset, $with_references, static::update_hierarchy($hierarchy));
+					}
 
 			if(isset(static::$_reference_many))
 				foreach(static::$_reference_many as $class => $data) {
