@@ -84,6 +84,17 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
+	 * Specify the table for the column to avoid problems when joining.
+	 *
+	 * @param   mixed  $value  The primary key value to find
+	 * @return  null|Model_Base  Either null or a new Model object
+	 */
+	public static function find_by_pk($value)
+	{
+		return static::find_one_by(static::$_table_name.'.'.static::primary_key(), $value);
+	}
+
+	/**
 	 * Add magic methods to count by columns
 	 *
 	 * @param   string  $name  The method name
