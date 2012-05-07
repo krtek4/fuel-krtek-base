@@ -128,7 +128,10 @@ abstract class Model_Base extends \Model_Crud {
 
 		$ids = static::ids_for_find_many($name, $id);
 
-		throw new Exception('not implemented');
+		$instances = array();
+		foreach($ids as $id)
+			$instances[] = static::find_by_pk($id);
+		return $instances;
 	}
 
 	/**
@@ -444,6 +447,7 @@ abstract class Model_Base extends \Model_Crud {
 				$instances[$class] = $class::find_by_pk($class_id);
 				$instances[$class]->from_array($fields);
 			} else { // it is a creation
+				unset($fields[$class::primary_key()]);
 				$instances[$class] = $class::forge($fields);
 			}
 			if(! $instances[$class]) {
@@ -741,7 +745,7 @@ abstract class Model_Base extends \Model_Crud {
 		try {
 			return $this->magic_relation($name);
 		} catch(Model_Exception $e) {
-			throw new \BadMethodCallException($e->message);
+			throw new \BadMethodCallException($e->getMessage());
 		}
 	}
 
@@ -776,14 +780,15 @@ abstract class Model_Base extends \Model_Crud {
 					}
 
 			if(isset(static::$_reference_many))
-				foreach(static::$_reference_many as $class => $data) {
-					$ids = $class::ids_for_find_many(get_called_class(), $this->id);
+				foreach(static::$_reference_many as $class => $data)
+					if(isset($this->{static::primary_key()})) {
+						$ids = $class::ids_for_find_many(get_called_class(), $this->{static::primary_key()});
 
-					$field_name = static::_field_name($data['fk'], $hierarchy);
-					$field = $fieldset->field($field_name);
-					if($field)
-						$field->set_value(\Input::post($field_name, $ids), true);
-				}
+						$field_name = static::_field_name($data['fk'], $hierarchy);
+						$field = $fieldset->field($field_name);
+						if($field)
+							$field->set_value(\Input::post($field_name, $ids), true);
+					}
 		}
 
 		return $fieldset;
