@@ -95,6 +95,21 @@ abstract class Model_Base extends \Model_Crud {
 	}
 
 	/**
+	 * Specify the table for the column to avoid problems when joining. If a table
+	 * is already specified, nothing's done.
+	 *
+	 * @param   mixed  $column  The column to search
+	 * @param   mixed  $value   The value to find
+	 * @return  null|object  Either null or a new Model object
+	 */
+	public static function find_one_by($column, $value = null, $operator = '=') {
+		if(strpos($column, '.') === false)
+			$column = static::$_table_name.'.'.$column;
+
+		return parent::find_one_by($column, $value, $operator);
+	}
+
+	/**
 	 * Retrieve a list of id for the current model which reference the the foreign
 	 * model through the association table defined in $_reference_many.
 	 *
