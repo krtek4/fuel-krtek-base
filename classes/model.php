@@ -5,7 +5,7 @@ namespace Base;
 /**
  * Base exception for various Model related exceptions.
  */
-class Model_Exception extends \Fuel\Core\Fuel_Exception { };
+class Model_Exception extends \Fuel\Core\FuelException { }
 
 /**
  * Base class for each model.
@@ -466,7 +466,7 @@ abstract class Model_Base extends \Model_Crud {
 				$instances[$class] = $class::forge($fields);
 			}
 			if(! $instances[$class]) {
-				\Fuel\Core\Log::error('Unable to find '.$class.' in instances.');
+				\Log\Log::error('Unable to find '.$class.' in instances.');
 				return false;
 			}
 		}
@@ -477,7 +477,7 @@ abstract class Model_Base extends \Model_Crud {
 			$status_tmp = $instances[$model]->_save_reference_many($references);
 			$status = self::_combine_save_results($status, $status_tmp);
 		} catch(Exception $e) {
-			\Fuel\Core\Log::error($e);
+			\Log\Log::error($e);
 			return false;
 		}
 
@@ -667,7 +667,7 @@ abstract class Model_Base extends \Model_Crud {
 		try {
 			$status = self::_do_save($validate, $instances);
 			if(! $status)
-				\Fuel\Core\Log::error('Validation failed : '.$this->validation()->show_errors());
+				\Log\Log::error('Validation failed : '.$this->validation()->show_errors());
 		} catch(Exception $e) {
 			\Fuel\Core\DB::rollback_transaction();
 			throw $e;
