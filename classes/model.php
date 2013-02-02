@@ -284,12 +284,16 @@ abstract class Model_Base extends \Model_Crud {
 		} else if(substr($field, -3) == '_id' && in_array($attributes['type'], array('select', 'checkbox', 'radio'))) {
 			if(isset($attributes['callback'])) {
 				$callback = $attributes['callback'];
+				$callback_params = isset($attributes['callback_params']) ? $attributes['callback_params'] : array();
 				unset($attributes['callback']);
-			} else
-				$callback = array('Model_'.ucfirst(substr($field, 0, -3)), 'find_all');
+				unset($attributes['callback_params']);
+			} else {
+				$callback = array('Model_' . ucfirst(substr($field, 0, -3)), 'find_all');
+				$callback_params = array();
+			}
 
 			$attributes['options'] = array();
-			$rows = call_user_func($callback);
+			$rows = call_user_func_array($callback, $callback_params);
 			if($rows)
 				foreach($rows as $row)
 					$attributes['options'][$row['id']] = $row->select_name();
