@@ -23,7 +23,7 @@ class Model_Exception extends \Fuel\Core\FuelException { }
  * @copyright 2012 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-abstract class Model_Base extends \Model_Crud {
+abstract class Model_Base extends \Fuel\Core\Model_Crud {
 //	/**
 //	 * @var array List of fieldset definition for this model
 //	 */
@@ -525,7 +525,7 @@ abstract class Model_Base extends \Model_Crud {
 					default:
 						$new_model = $info[0]; // inclusion of a definition from another model
 				}
-				self::_process_fieldset_input($new_model, $info[1], $fields, $data, self::update_hierarchy($hierarchy));
+				self::_process_fieldset_input($new_model, $info[1], $fields, $data, $model::update_hierarchy($hierarchy));
 			}
 		}
 	}
@@ -578,27 +578,60 @@ abstract class Model_Base extends \Model_Crud {
 	/**
 	 * Save the various references of the model and then assign the ids to the foreign key column.
 	 *
+	 * @param bool $validate do we have to validate
 	 * @param array $instances Array of instances of various references model with the form 'Model_Name' => instance
 	 * @return array|int|bool
-	 *		false if the validation failed
-	 *		On UPDATE : number of affected rows
-	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	private function _save_reference_one($validate, array &$instances) {
 		$result = 0;
+
 		if(! isset(static::$_reference_one))
 			return $result;
 
 		foreach(static::$_reference_one as $class => $fk) {
 			if(! isset($instances[$class]))
-					continue;
+				continue;
 
-				if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
-					return false;
+			if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
+				return false;
 
-				$this->{$fk} = $instances[$class]->{$class::primary_key()};
-				$result = self::_combine_save_results($result, $r_temp);
-			}
+			$this->{$fk} = $instances[$class]->{$class::primary_key()};
+			$result = self::_combine_save_results($result, $r_temp);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Save the various references of the model and then assign the ids to the foreign key column.
+	 *
+	 * @param bool $validate do we have to validate
+	 * @param array $instances Array of instances of various references model with the form 'Model_Name' => instance
+	 * @return array|int|bool
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	private function _save_reference_by($validate, array &$instances)
+	{
+		$result = 0;
+
+		if (! isset(static::$_referenced_by))
+			return $result;
+
+		foreach (static::$_referenced_by as $class => $fk) {
+			if (!isset($instances[$class]))
+				continue;
+
+			$instances[$class]->{$fk} = $this->{$this->primary_key()};
+			if (($r_temp = $instances[$class]->_do_save($validate, $instances, false)) === false)
+				return false;
+
+			$result = self::_combine_save_results($result, $r_temp);
+		}
 		return $result;
 	}
 
@@ -612,12 +645,17 @@ abstract class Model_Base extends \Model_Crud {
 	 *		On UPDATE : number of affected rows
 	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
-	private function _do_save($validate, array &$instances) {
-		$result = $this->_save_reference_one($validate, $instances);
-		if($result === false)
-			return false;
+	private function _do_save($validate, array &$instances, $with_reference_one = true) {
+		if($with_reference_one) {
+			$result = $this->_save_reference_one($validate, $instances);
+			if ($result === false)
+				return false;
+		}
 
 		$result_tmp = parent::save($validate);
+		$result = self::_combine_save_results($result, $result_tmp);
+
+		$result_tmp = $this->_save_reference_by($validate, $instances);
 		return self::_combine_save_results($result, $result_tmp);
 	}
 
@@ -796,6 +834,18 @@ abstract class Model_Base extends \Model_Crud {
 						$reference = $class::find_by_pk($this->{$fk});
 						if($reference)
 							$reference->populate($fieldset, $with_references, static::update_hierarchy($hierarchy));
+					}
+
+			if (isset(static::$_referenced_by))
+				foreach (static::$_referenced_by as $class => $fk)
+					if(isset($this->{static::primary_key()})) {
+						$referenced = $class::find_by($fk, $this->{static::primary_key()});
+						if($referenced) {
+							if(is_array($referenced))
+								$referenced = current($referenced);
+						} else
+							$referenced = $class::forge(array($fk => $this->{static::primary_key()}));
+						$referenced->populate($fieldset, false, static::update_hierarchy($hierarchy));
 					}
 
 			if(isset(static::$_reference_many))
