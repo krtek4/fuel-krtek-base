@@ -415,22 +415,24 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			$data[$k] = \Input::post($k, $data[$k]);
 
 
-		\Fuel\Core\Upload::process($model::$_upload_config);
-		if(\Fuel\Core\Upload::is_valid()) {
-			\Fuel\Core\Upload::save();
+		if(! empty($_FILES)) {
+			\Fuel\Core\Upload::process($model::$_upload_config);
+			if(\Fuel\Core\Upload::is_valid()) {
+				\Fuel\Core\Upload::save();
 
-			foreach(\Fuel\Core\Upload::get_files() as $file) {
-				$data[$file['field']] = '/'.$file['saved_to'].$file['saved_as'];
-			}
-		}
-		$upload_errors = \Fuel\Core\Upload::get_errors();
-		if(! empty($upload_errors)) {
-			foreach($upload_errors as $errors) {
-				foreach($errors['errors'] as $error) {
-					\Messages\Messages::instance()->message('error', $error['message']);
+				foreach(\Fuel\Core\Upload::get_files() as $file) {
+					$data[$file['field']] = '/'.$file['saved_to'].$file['saved_as'];
 				}
 			}
-			return false;
+			$upload_errors = \Fuel\Core\Upload::get_errors();
+			if(! empty($upload_errors)) {
+				foreach($upload_errors as $errors) {
+					foreach($errors['errors'] as $error) {
+						\Messages\Messages::instance()->message('error', $error['message']);
+					}
+				}
+				return false;
+			}
 		}
 
 		if(! $model::fieldset($definition)->validation()->run($data))
