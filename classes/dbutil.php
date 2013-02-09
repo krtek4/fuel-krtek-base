@@ -124,7 +124,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 		$complete_fk = static::foreign_key_array($fks, $name);
 
 		return \DBUtil::create_table($name, $fields, array('id'), false, 'InnoDB', null, $complete_fk) &&
-				static::create_trigger('uuid_short_'.$name, $name, 'BEGIN SET NEW.id = uuid_short(); SET @last_uuid = NEW.id; END');
+				static::create_trigger('uuid_short_'.$name, $name, 'BEGIN IF(NEW.id = 0) THEN SET NEW.id = uuid_short(); SET @last_uuid = NEW.id; END IF; END');
 	}
 
 	/**
