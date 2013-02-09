@@ -773,23 +773,32 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		else
 			$model_name = 'Model_'.ucfirst(str_replace('_', '', \Inflector::classify($name)));
 
+		$found = 0;
 		if(isset(static::$_reference_one) && isset(static::$_reference_one[$model_name])) {
 			$field = static::$_reference_one[$model_name];
 			$method = 'find_by_pk';
-		} else if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
+			++$found;
+		}
+		if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
 			$field = 'id';
 			$method = 'find_by_'.static::$_referenced_by[$model_name];
-		} else if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
+			++$found;
+		}
+		if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
 			$field = 'id';
 			$method = 'find_many_by_'.static::$_reference_many[$model_name]['lk'];
+			++$found;
 		}
 
-		if(isset($method)) {
-			$id = $this->{$field};
-			return call_user_func_array($model_name.'::'.$method, array($id));
+		switch($found) {
+			case 0:
+				throw new Model_Exception('No relation found for this name : '.$name.' '.$model_name);
+			case 1:
+				$id = $this->{$field};
+				return call_user_func_array($model_name.'::'.$method, array($id));
+			default:
+				throw new Model_Exception('Ambiguous relation found for this name : '.$name.' '.$model_name);
 		}
-
-		throw new Model_Exception('No relation found for this name : '.$name.' '.$model_name);
 	}
 
 	/**
