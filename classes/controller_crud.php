@@ -21,6 +21,11 @@ abstract class Controller_Crud extends Controller_Base {
 	protected static $_model = null;
 
 	/**
+	 * @var array list of model classes to preload to the cache
+	 */
+	protected static $_preload = array();
+
+	/**
 	 * @var string Name to use for instance variable, page title (plurialized), view name
 	 */
 	protected static $_friendly_name = null;
@@ -46,6 +51,8 @@ abstract class Controller_Crud extends Controller_Base {
 			static::$_friendly_name = static::_class_to_name();
 		if(is_null(static::$_model))
 			static::$_model = 'Model_'.  ucfirst(static::$_friendly_name);
+
+		Cache::preload(static::$_preload);
 	}
 
 	/**

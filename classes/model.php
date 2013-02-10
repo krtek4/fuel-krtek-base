@@ -91,6 +91,9 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 */
 	public static function find_by_pk($value)
 	{
+		if(Cache::has($value))
+			return Cache::get($value);
+
 		return static::find_one_by(static::$_table_name.'.'.static::primary_key(), $value);
 	}
 
@@ -732,6 +735,24 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected function post_save($result) {
 		$uuid = \Fuel\Core\DB::query('SELECT @last_uuid as id')->execute();
 		$this->{static::primary_key()} = $uuid[0]['id'];
+		Cache::save($this->{static::primary_key()}, $this);
+		return $result;
+	}
+
+	protected function post_update($result) {
+		Cache::save($this->{static::primary_key()}, $this);
+		return $result;
+	}
+
+	/**
+	 * Save the retrieved objects to the cache.
+	 *
+	 * @inheritDoc
+	 */
+	protected static function post_find($result) {
+		if(is_array($result))
+			foreach($result as $r)
+				Cache::save($r->{static::primary_key()}, $r);
 		return $result;
 	}
 
