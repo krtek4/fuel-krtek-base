@@ -655,7 +655,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			$result = $this->_save_reference_one($validate, $instances);
 			if ($result === false)
 				return false;
-		}
+		} else
+			$result = 0;
 
 		$result_tmp = parent::save($validate);
 		$result = self::_combine_save_results($result, $result_tmp);
