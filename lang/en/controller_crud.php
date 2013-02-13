@@ -7,8 +7,8 @@ return array(
 	'view' => 'View',
 	'edit' => 'Edit',
 
-	'add_success' => 'Your item was successfuly added.',
-	'edit_success' => 'Your item was successfuly edited.',
-	'delete_success' => 'Your item was successfuly deleted.',
-	'delete_error' => 'An error occured while deleting your item.',
+	'add_success' => 'Your item was successfully added.',
+	'edit_success' => 'Your item was successfully edited.',
+	'delete_success' => 'Your item was successfully deleted.',
+	'delete_error' => 'An error occurred while deleting your item.',
 );

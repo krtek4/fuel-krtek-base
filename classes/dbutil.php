@@ -1,6 +1,11 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
+
+use Fuel\Core\DB;
+use Fuel\Core\DBUtil as CoreDBUtil;
+use Fuel\Core\Database_Exception;
+use Fuel\Core\Inflector;
 
 /**
  * Extends the DBUtil class from FuelPHP to add some trigger management and
@@ -14,7 +19,7 @@ namespace Base;
  * @copyright 2012 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-class DBUtil extends \Fuel\Core\DBUtil {
+class DBUtil extends CoreDBUtil {
 	/**
 	 * @var array Needed information for storing MySQL's uuid_short() information.
 	 */
@@ -32,7 +37,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 
 	/**
 	 * Create the array needed by create_table() to create FK constraint on the creation.
-	 * If $dest_table and $column are not provided, the destination table is computed by addind an 's' to the key name
+	 * If $dest_table and $column are not provided, the destination table is computed by adding an 's' to the key name
 	 * and the column is 'id'.
 	 * If $key is an array, destination table and column must be null and the function will be called on each element
 	 * and an array of array will be returned.
@@ -40,12 +45,13 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 * @param string $source_table table name
 	 * @param string $dest_table destination table name (reference)
 	 * @param string $column column name in the destination table.
+	 * @throws \RuntimeException
 	 * @return array information for create_table()
 	 */
 	static protected function foreign_key_array($key, $source_table, $dest_table = null, $column = null) {
 		if(is_array($key)) {
 			if(! (is_null($dest_table) && is_null($column)))
-				throw new Exception("If an array of keys is provided, destination table and columns must be null.");
+				throw new \RuntimeException("If an array of keys is provided, destination table and columns must be null.");
 
 			$fks = array();
 			foreach($key as $k)
@@ -53,7 +59,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 			return $fks;
 		}
 
-		$dest_table = is_null($dest_table) ? \Inflector::pluralize($key) : $dest_table;
+		$dest_table = is_null($dest_table) ? Inflector::pluralize($key) : $dest_table;
 		$column = is_null($column) ? 'id' : $column;
 
 		return array(
@@ -74,20 +80,21 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 * @param string $column The references column
 	 * @param string $on_delete What to do on delete
 	 * @param string $on_update What to do on update
+	 * @throws Database_Exception
 	 * @return bool always true
 	 */
 	static public function create_foreign_key($table, $key, $ref_table, $column = 'id', $on_delete = 'CASCADE', $on_update = 'CASCADE') {
 		static $accepted_action = array('CASCADE', 'SET NULL', 'RESTRICT', 'NO ACTION', 'SET DEFAULT');
 
 		if(! in_array($on_delete, $accepted_action))
-			throw new \Database_Exception('Invalid action for On Delete : ',$on_delete);
+			throw new Database_Exception('Invalid action for On Delete : ',$on_delete);
 		if(! in_array($on_update, $accepted_action))
-			throw new \Database_Exception('Invalid action for On Update : ',$on_update);
+			throw new Database_Exception('Invalid action for On Update : ',$on_update);
 
-		\DB::query('ALTER TABLE '.\DB::quote_identifier(\DB::table_prefix($table)).
+		DB::query('ALTER TABLE '.DB::quote_identifier(DB::table_prefix($table)).
 			' ADD CONSTRAINT '.static::foreign_key_name($table, $key).' FOREIGN KEY'.
 			' ('.$key.')'.
-			' REFERENCES '.\DB::quote_identifier(\DB::table_prefix($ref_table)).' ('.$column.')'.
+			' REFERENCES '.DB::quote_identifier(DB::table_prefix($ref_table)).' ('.$column.')'.
 			' ON DELETE '.$on_delete.' ON UPDATE '.$on_update)->execute();
 		return true;
 	}
@@ -100,7 +107,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 * @return bool always true
 	 */
 	static public function drop_foreign_key($table, $key) {
-		\DB::query('ALTER TABLE '.\DB::quote_identifier(\DB::table_prefix($table)).
+		DB::query('ALTER TABLE '.DB::quote_identifier(DB::table_prefix($table)).
 			' DROP FOREIGN KEY '.static::foreign_key_name($table, $key))->execute();
 		return true;
 	}
@@ -108,7 +115,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	/**
 	 * Create a new table which use the result of MySQL's uuid_short function as primary key. The primary
 	 * key field is automatically added by the function and a trigger is created to populate it.
-	 * The FKs are created based on the key name provided in the last paramater. An '_id' is added at the end for
+	 * The FKs are created based on the key name provided in the last parameter. An '_id' is added at the end for
 	 * the field name, the references table is the key name + 's' and the column is 'id'.
 	 * @param string $name Table name
 	 * @param array $fields List of fields without primary field
@@ -123,7 +130,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 
 		$complete_fk = static::foreign_key_array($fks, $name);
 
-		return \DBUtil::create_table($name, $fields, array('id'), false, 'InnoDB', null, $complete_fk) &&
+		return CoreDBUtil::create_table($name, $fields, array('id'), false, 'InnoDB', null, $complete_fk) &&
 				static::create_trigger('uuid_short_'.$name, $name, 'BEGIN IF(NEW.id = 0) THEN SET NEW.id = uuid_short(); SET @last_uuid = NEW.id; END IF; END');
 	}
 
@@ -134,7 +141,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 */
 	static public function drop_uuid_table($name) {
 		static::drop_trigger('uuid_short_'.$name);
-		\DBUtil::drop_table($name);
+		CoreDBUtil::drop_table($name);
 		return  true;
 	}
 
@@ -147,6 +154,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 * @param string $body Body of the trigger
 	 * @param string $time Time for the trigger
 	 * @param string $event Event on which the trigger will be triggered
+	 * @throws Database_Exception
 	 * @return bool true if succeeded
 	 */
 	static public function create_trigger($name, $table, $body, $time = 'BEFORE', $event = 'INSERT') {
@@ -157,16 +165,16 @@ class DBUtil extends \Fuel\Core\DBUtil {
 		$event = strtoupper($event);
 
 		if(! in_array($time, $accepted_time))
-			throw new \Database_Exception('Invalid time for trigger : ',$time);
+			throw new Database_Exception('Invalid time for trigger : ',$time);
 
 		if(! in_array($event, $accepted_event))
-			throw new \Database_Exception('Invalid event for trigger : ',$event);
+			throw new Database_Exception('Invalid event for trigger : ',$event);
 
-		$sql = 'CREATE TRIGGER '.\DB::quote_identifier($name).' '.$time.' '.$event.' ON ';
-		$sql .= \DB::quote_identifier(\DB::table_prefix($table));
+		$sql = 'CREATE TRIGGER '.DB::quote_identifier($name).' '.$time.' '.$event.' ON ';
+		$sql .= DB::quote_identifier(DB::table_prefix($table));
 		$sql .= ' FOR EACH ROW '.$body.';';
 
-		return \DB::query($sql)->execute();
+		return DB::query($sql)->execute();
 	}
 
 	/**
@@ -176,7 +184,7 @@ class DBUtil extends \Fuel\Core\DBUtil {
 	 * @return bool true if succeeded
 	 */
 	static public function drop_trigger($name, $if_exists = false) {
-		\DB::query('DROP TRIGGER '.($if_exists ? 'IF EXISTS ' : '').\DB::quote_identifier($name))->execute();
+		DB::query('DROP TRIGGER '.($if_exists ? 'IF EXISTS ' : '').DB::quote_identifier($name))->execute();
 		return true;
 	}
 }

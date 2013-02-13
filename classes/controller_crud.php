@@ -1,6 +1,11 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
+
+use \Fuel\Core\Lang;
+use \Fuel\Core\Inflector;
+use \Fuel\Core\ViewModel;
+use \Fuel\Core\Response;
 
 /**
  * Base CRUD controller class which implements various method to help creating
@@ -26,14 +31,14 @@ abstract class Controller_Crud extends Controller_Base {
 	protected static $_preload = array();
 
 	/**
-	 * @var string Name to use for instance variable, page title (plurialized), view name
+	 * @var string Name to use for instance variable, page title (pluralized), view name
 	 */
 	protected static $_friendly_name = null;
 
 	/**
-	 * @var string default action for this controler
+	 * @var string default action for this controller
 	 */
-	public $default_action = 'list';
+	public $default_action = 'listing';
 
 	/**
 	 * @var array controller's contextual navigation
@@ -42,10 +47,10 @@ abstract class Controller_Crud extends Controller_Base {
 
 	/**
 	 * Load the lang data and try to set $_model and $_friendly_name based on
-	 * the controller's name if they aren't set.
+	 * the controller's name if they are not set.
 	 */
 	public static function _init() {
-		\Lang::load('controller_crud', 'controller_crud');
+		Lang::load('controller_crud', 'controller_crud');
 
 		if(is_null(static::$_friendly_name))
 			static::$_friendly_name = static::_class_to_name();
@@ -61,7 +66,7 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @return string the friendly name to use if none is set.
 	 */
 	protected static function _class_to_name() {
-		return \Fuel\Core\Inflector::singularize(strtolower(str_replace('Controller_', '', get_called_class())));
+		return Inflector::singularize(strtolower(str_replace('Controller_', '', get_called_class())));
 	}
 
 	/**
@@ -71,14 +76,14 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @return string the text corresponding to the key
 	 */
 	private static function get_message($name) {
-		return \Lang::get('controller_crud.'.$name);
+		return Lang::get('controller_crud.'.$name);
 	}
 
 	/**
 	 * @return string name of the view to use based on the friendly_name
 	 */
 	private static function _view() {
-		return \Fuel\Core\Inflector::pluralize(static::$_friendly_name);
+		return Inflector::pluralize(static::$_friendly_name);
 	}
 
 	/**
@@ -89,12 +94,13 @@ abstract class Controller_Crud extends Controller_Base {
 	}
 
 	/**
+	 * @param bool $plural do we have to pluralize the name ?
 	 * @return string name of the instance variable based on the friendly_name
 	 */
 	private static function _var_name($plural = false) {
 		$name = static::$_friendly_name;
 		if($plural)
-			$name = \Fuel\Core\Inflector::pluralize($name);
+			$name = Inflector::pluralize($name);
 		return $name;
 	}
 
@@ -112,6 +118,7 @@ abstract class Controller_Crud extends Controller_Base {
 
 	/**
 	 * @param string $action the action to point to
+	 * @param array $param parameters to add to the url
 	 * @return string url internal to the class linking to the given action
 	 */
 	protected function _internal_url($action = null, $param = array()) {
@@ -135,9 +142,9 @@ abstract class Controller_Crud extends Controller_Base {
 	 * Navigation to show every time
 	 */
 	protected function global_nav() {
-		static::nav($this->_internal_url('list'), static::get_message('list'), array('class' => 'text_icon list'));
-		static::nav($this->_internal_url('search'),  static::get_message('search'), array('class' => 'text_icon search'));
-		static::nav($this->_internal_url('add'),  static::get_message('add'), array('class' => 'text_icon add'));
+		static::nav($this->_internal_url('listing'), static::get_message('list'), array('class' => 'text_icon list'));
+		static::nav($this->_internal_url('search'), static::get_message('search'), array('class' => 'text_icon search'));
+		static::nav($this->_internal_url('add'), static::get_message('add'), array('class' => 'text_icon add'));
 	}
 
 	/**
@@ -160,14 +167,14 @@ abstract class Controller_Crud extends Controller_Base {
 	 *
 	 * @param string $action The name of the action to pass to the view model
 	 * @param string $instance The variable to set on the view model (with _var_name)
-	 * @param bool $plural wheter we have one more more instances
+	 * @param bool $plural whether we have one more more instances
 	 * @return mixed content
 	 */
 	protected function _content($action, $instance = null, $plural = false) {
 		try {
-			$vm = \Fuel\Core\ViewModel::forge(self::_view(), $action);
+			$vm = ViewModel::forge(self::_view(), $action);
 		} catch(\OutOfBoundsException $e) {
-			$vm = \Fuel\Core\ViewModel::forge('Crud', $action);
+			$vm = ViewModel::forge('Crud', $action);
 		}
 		if(! is_null($instance)) {
 			$vm->set(self::_var_name($plural), $instance);
@@ -224,19 +231,24 @@ abstract class Controller_Crud extends Controller_Base {
 		return null;
 	}
 
+	protected function message($class, $msg) {
+		if(\Fuel\Core\Package::loaded('messages'))
+			\Messages\Messages::instance()->message('success', self::get_message('delete_success'));
+	}
+
 	/**
 	 * Set the contextual navigation of this controller
 	 */
 	public function before() {
 		$this->global_nav();
-		return parent::before();
+		parent::before();
 	}
 
 	/**
 	 * List all the instances of the related model
 	 */
-	public function action_list() {
-		$this->_content('list', $this->_instances(), true);
+	public function action_listing() {
+		$this->_content('listing', $this->_instances(), true);
 	}
 
 	/**
@@ -262,8 +274,8 @@ abstract class Controller_Crud extends Controller_Base {
 	 */
 	public function action_add() {
 		if($this->fieldset_process_result()) {
-			\Messages\Messages::instance()->message('success', self::get_message('add_success'));
-			\Response::redirect($this->_internal_url());
+			$this->message('success', self::get_message('add_success'));
+			Response::redirect($this->_internal_url());
 		}
 
 		$this->_content('form', $this->_new_instance());
@@ -277,8 +289,8 @@ abstract class Controller_Crud extends Controller_Base {
 	 */
 	public function action_edit($id = -1) {
 		if($this->fieldset_process_result()) {
-			\Messages\Messages::instance()->message('success', self::get_message('edit_success'));
-			\Response::redirect($this->_internal_url());
+			$this->message('success', self::get_message('edit_success'));
+			Response::redirect($this->_internal_url());
 		}
 
 		$this->specific_nav($id);
@@ -293,11 +305,11 @@ abstract class Controller_Crud extends Controller_Base {
 	 */
 	public function action_delete($id = -1) {
 		if($this->_instance($id)->delete())
-			\Messages\Messages::instance()->message('success', self::get_message('delete_success'));
+			$this->message('success', self::get_message('delete_success'));
 		else
-			\Messages\Messages::instance()->message('error', self::get_message('delete_error'));
+			$this->message('error', self::get_message('delete_error'));
 
-		\Response::redirect($this->_internal_url());
+		Response::redirect($this->_internal_url());
 	}
 }
 

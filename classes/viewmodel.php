@@ -1,6 +1,6 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
 
 /**
  * Base class for each ViewModel.
@@ -17,7 +17,7 @@ namespace Base;
  * @copyright 2012 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-abstract class ViewModel_Base extends \ViewModel {
+abstract class ViewModel_Base extends \Fuel\Core\ViewModel {
 	/**
 	 * @var string format of the template to use (by default mustache)
 	 */
@@ -35,7 +35,7 @@ abstract class ViewModel_Base extends \ViewModel {
 		if(is_null($this->_view_folder))
 			$this->_view_folder = strtolower(str_replace('View_', '', \Fuel\Core\Inflector::denamespace(get_called_class())));
 
-		// registring method before it's done in the parent constructor
+		// registering method before it's done in the parent constructor
 		// because set_view is called before and we need the method name.
 		$this->_method = $method;
 		return parent::__construct($method, $auto_filter);
@@ -57,15 +57,16 @@ abstract class ViewModel_Base extends \ViewModel {
 	 *
 	 * @param string $name called method
 	 * @param array $arguments arguments
+	 * @throws \RuntimeException if the called method isn't the method asked to the ViewModel.
 	 * @return mixed depends on the method
-	 * @exception ErrorException if the called method isn't the method asked to the ViewModel.
 	 */
 	public function __call($name, $arguments) {
 		// only all magic call of the method passed to the ViewModel
 		if($name !== $this->_method)
-			throw new \Exception('Call to undefined method '.get_called_class().'::'.$name.'()');
+			throw new \RuntimeException('Call to undefined method '.get_called_class().'::'.$name.'()');
 		if(method_exists($this, $name))
-				return call_user_func_array(array($this, $name), $arguments);
+			return call_user_func_array(array($this, $name), $arguments);
+		return false;
 	}
 
 	/**
@@ -90,7 +91,7 @@ abstract class ViewModel_Base extends \ViewModel {
 	 * @param string $url The HMVC url
 	 */
 	protected function hmvc($name, $url) {
-		$this->set($name, \Request::forge($url)->execute()->response()->__toString(), false);
+		$this->set($name, \Fuel\Core\Request::forge($url)->execute()->response()->__toString(), false);
 	}
 }
 

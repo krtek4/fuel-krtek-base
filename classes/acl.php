@@ -1,18 +1,18 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
 
 /**
  * Thrown when a 403 forbidden error is needed.
  */
 class HttpForbiddenException extends \Fuel\Core\HttpException {
 	public function response() {
-		return new \Response(\View::forge('403'), 403);
+		return new \Fuel\Core\Response(\Fuel\Core\View::forge('403'), 403);
 	}
 }
 
 /**
- * Thrown when an user hasn't access to some ressource.
+ * Thrown when an user has not access to some resource.
  */
 class AclException extends \Auth\AuthException { }
 
@@ -41,7 +41,7 @@ class Acl {
 	 * Helper method to call \Auth\Auth::instance()->has_access()
 	 *
 	 * @param string $condition
-	 * @return bool Wheter the user has access or not
+	 * @return bool Whether the user has access or not
 	 */
 	private static function _check_access($condition) {
 		if(! \Fuel\Core\Package::loaded('auth'))
@@ -57,7 +57,7 @@ class Acl {
 	 *
 	 * @param Model_Base|string $instance either a model class instance or a class name
 	 * @param string $action the action to test for (save|update|delete|find)
-	 * @return bool Wheter the user has access or not
+	 * @return bool Whether the user has access or not
 	 */
 	public static function model_access($instance, $action) {
 		$condition = array('Model', $action, $instance);
@@ -70,7 +70,7 @@ class Acl {
 	 * @param string $controller the controller name
 	 * @param string $action the controller action to test for
 	 * @param string $domain the domain (public|admin) if it is impossible to infer from controller name
-	 * @return bool Wheter the user has access or not
+	 * @return bool Whether the user has access or not
 	 */
 	public static function controller_access($controller, $action = 'index', $domain = null) {
 		$condition = array($controller, $action);

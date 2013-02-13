@@ -14,17 +14,17 @@
  * @link https://github.com/krtek4/fuel-krtek-base
  */
 
-Fuel\Core\Autoloader::add_core_namespace('Base');
+Fuel\Core\Autoloader::add_core_namespace('KrtekBase');
 
 Fuel\Core\Autoloader::add_classes(array(
-	'Base\\DBUtil' => __DIR__.'/classes/dbutil.php',
-	'Base\\Migration' => __DIR__.'/classes/migration.php',
-	'Base\\Model_Base' => __DIR__.'/classes/model.php',
-	'Base\\Cache' => __DIR__.'/classes/cache.php',
-	'Base\\Controller_Base' => __DIR__.'/classes/controller.php',
-	'Base\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
-	'Base\\Acl' => __DIR__.'/classes/acl.php',
+	'KrtekBase\\DBUtil' => __DIR__.'/classes/dbutil.php',
+	'KrtekBase\\Migration' => __DIR__.'/classes/migration.php',
+	'KrtekBase\\Model_Base' => __DIR__.'/classes/model.php',
+	'KrtekBase\\Cache' => __DIR__.'/classes/cache.php',
+	'KrtekBase\\Controller_Base' => __DIR__.'/classes/controller.php',
+	'KrtekBase\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
+	'KrtekBase\\Acl' => __DIR__.'/classes/acl.php',
 
-	'Base\\Controller_Crud' => __DIR__.'/classes/controller_crud.php',
-	'Base\\View_Crud' => __DIR__.'/classes/viewmodel_crud.php',
+	'KrtekBase\\Controller_Crud' => __DIR__.'/classes/controller_crud.php',
+	'KrtekBase\\View_Crud' => __DIR__.'/classes/viewmodel_crud.php',
 ));

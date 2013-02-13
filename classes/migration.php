@@ -1,6 +1,10 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
+
+use Fuel\Core\DB;
+use Fuel\Core\Database_Exception;
+use Fuel\Core\Cli;
 
 /**
  * Base class for migrations
@@ -17,25 +21,25 @@ abstract class Migration {
 	/**
 	 * Enclose the migration in a transaction.
 	 * @param string $direction either 'up' or 'down'
+	 * @throws Database_Exception
 	 * @return bool true if the migration was successful
 	 */
 	private function run($direction) {
-		\Fuel\Core\DB::start_transaction();
+		DB::start_transaction();
 
-		$status = true;
 		try {
 			$status = call_user_func(array($this, 'do_'.$direction));
-		} catch(Exception $e) {
-			\Fuel\Core\Cli::error($e);
+		} catch(\Exception $e) {
+			Cli::error($e);
 			$status = false;
 		}
 
 		if(! $status) {
-			\Fuel\Core\Cli::error("Something went wrong during the migration, rollback !");
-			\Fuel\Core\DB::rollback_transaction();
-			throw new \Database_Exception("Migration rolled back due to error.");
+			Cli::error("Something went wrong during the migration, rollback !");
+			DB::rollback_transaction();
+			throw new Database_Exception("Migration rolled back due to error.");
 		}
-		\Fuel\Core\DB::commit_transaction();
+		DB::commit_transaction();
 		return true;
 	}
 

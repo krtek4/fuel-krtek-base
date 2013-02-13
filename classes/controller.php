@@ -1,6 +1,10 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
+
+use Fuel\Core\Controller_Template;
+use Fuel\Core\Input;
+use Fuel\Core\Package;
 
 /**
  * Base class for each controller.
@@ -13,7 +17,7 @@ namespace Base;
  * @copyright 2012 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-abstract class Controller_Base extends \Controller_Template {
+abstract class Controller_Base extends Controller_Template {
 	/**
 	 * @var bool if null no fieldset were processed, otherwise the result of the process.
 	 */
@@ -34,7 +38,7 @@ abstract class Controller_Base extends \Controller_Template {
 
 		parent::before();
 
-		if(\Input::method() == 'POST' && $this->auto_process)
+		if(Input::method() == 'POST' && $this->auto_process)
 			$this->process_fieldset();
 	}
 
@@ -43,7 +47,8 @@ abstract class Controller_Base extends \Controller_Template {
 	 * @return Model_Base|bool result of the fieldset process.
 	 */
 	final protected function process_fieldset() {
-		if(! $this->_fieldset_processed = Model_Base::process_fieldset_input())
+		$this->_fieldset_processed = Model_Base::process_fieldset_input();
+		if(! $this->_fieldset_processed && Package::loaded('messages'))
 				\Messages\Messages::instance()->message('error', 'Veuillez vérifier les informations fournies.');
 		return $this->fieldset_process_result();
 	}
@@ -66,14 +71,14 @@ abstract class Controller_Base extends \Controller_Template {
 	 * @return bool true if this is an AJAX request
 	 */
 	final protected function is_ajax() {
-		return \Input::is_ajax() && ! $this->is_pjax();
+		return Input::is_ajax() && ! $this->is_pjax();
 	}
 
 	/**
 	 * @return bool true if this is a PJAX request
 	 */
 	final protected function is_pjax() {
-		return \Fuel\Core\Input::server('HTTP_X_PJAX', 'false') === 'true';
+		return Input::server('HTTP_X_PJAX', 'false') === 'true';
 	}
 
 	/**
@@ -94,13 +99,14 @@ abstract class Controller_Base extends \Controller_Template {
 	 * Set the content and title of the response
 	 * @param mixed $content The content
 	 * @param mixed $title The title, not used if the response isn't templated
+	 * @throws \RuntimeException when the title isn't set
 	 */
 	final protected function content($content, $title = null) {
 		if(! $this->is_templated())
 			$this->template = $content;
 		else {
 			if(is_null($title))
-				throw new Exception("Title must be set !");
+				throw new \RuntimeException("Title must be set !");
 
 			$this->template->title = $title;
 			$this->template->content = $content;

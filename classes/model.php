@@ -1,6 +1,15 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
+
+use Fuel\Core\DB;
+use Fuel\Core\Fieldset;
+use Fuel\Core\Input;
+use Fuel\Core\Arr;
+use Fuel\Core\Database_Connection;
+use Fuel\Core\Database_Result;
+use Fuel\Core\Inflector;
+
 
 /**
  * Base exception for various Model related exceptions.
@@ -24,25 +33,50 @@ class Model_Exception extends \Fuel\Core\FuelException { }
  * @link https://github.com/krtek4/fuel-krtek-base
  */
 abstract class Model_Base extends \Fuel\Core\Model_Crud {
-//	/**
-//	 * @var array List of fieldset definition for this model
-//	 */
-//	protected static $_fieldsets = array();
+	/**
+	 * @var string the name of the table representing this object
+	 */
+	protected static $_table_name = null;
 
-//	/**
-//	 * @var array Models this class references with the form 'Model_Name' => 'FK column'
-//	 */
-//	protected static $_reference_one = null;
+	/**
+	 * @var array rules for the fields
+	 */
+	protected static $_rules = array();
 
-//	/**
-//	 * @var array Models this class is linked to by an association table 'Model_Name' => 'association table'
-//	 */
-//	protected static $_reference_many = null;
+	/**
+	 * @var array attributes for the fields
+	 */
+	protected static $_attributes = array();
 
-//	/**
-//	 * @var array Models referencing this class with the form 'Model_Name' => 'FK column on the other table'
-//	 */
-//	protected static $_referenced_by = null;
+	/**
+	 * @var array labels for the fields
+	 */
+	protected static $_labels = array();
+
+	/**
+	 * @var array default values for the fields
+	 */
+	protected static $_defaults = array();
+
+	/**
+	 * @var array List of fieldset definition for this model
+	 */
+	protected static $_fieldsets = array();
+
+	/**
+	 * @var array Models this class references with the form 'Model_Name' => 'FK column'
+	 */
+	protected static $_reference_one = array();
+
+	/**
+	 * @var array Models this class is linked to by an association table 'Model_Name' => 'association table'
+	 */
+	protected static $_reference_many = array();
+
+	/**
+	 * @var array Models referencing this class with the form 'Model_Name' => 'FK column on the other table'
+	 */
+	protected static $_referenced_by = array();
 
 	/**
 	 * @var array configuration for file uploading, merge with the default config
@@ -52,8 +86,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	/**
 	 * Count all row in the table where the column has the provided value.
 	 *
-	 * @param string Column name
-	 * @param mixed value to look for
+	 * @param string $column
+	 * @param mixed $value to look for
 	 * @return int the count.
 	 */
 	public static function count_by($column, $value) {
@@ -67,7 +101,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * were asked and their's none, an empty array will be returned.
 	 *
 	 * @param int $id id for one row, null for all
-	 * @return Model_*|array Instance of a model object, or array of instances.
+	 * @throws \Fuel\Core\HttpNotFoundException
+	 * @return Model_Base|array Instance of a model object, or array of instances.
 	 */
 	public static function e_find($id = null) {
 		if(is_null($id)) {
@@ -103,7 +138,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 *
 	 * @param   mixed  $column  The column to search
 	 * @param   mixed  $value   The value to find
-	 * @return  null|object  Either null or a new Model object
+	 * @param   string $operator The operator to use for the comparison
+	 * @return  null|Model_Base  Either null or a new Model object
 	 */
 	public static function find_one_by($column, $value = null, $operator = '=') {
 		if(strpos($column, '.') === false)
@@ -124,7 +160,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		$data = static::$_reference_many[$model];
 
 		$sql = 'SELECT '.$data['lk'].' FROM '.$data['table'].' WHERE '.$data['fk'].' = '.$id;
-		$result = \DB::query($sql)->execute()->as_array();
+		$result = DB::query($sql)->execute()->as_array();
 
 		$ids = array();
 		foreach($result as $r) {
@@ -158,7 +194,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @param   string  $name  The method name
 	 * @param   string  $args  The method args
 	 * @return  mixed   Based on static::$return_type
-	 * @throws  BadMethodCallException
+	 * @throws  \BadMethodCallException
 	 */
 	public static function __callStatic($name, $args)
 	{
@@ -196,23 +232,24 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 */
 	public static function fieldset($name, array $config = array()) {
 		$fieldset_name = get_called_class().'_'.$name;
-		$fieldset = \Fieldset::instance($fieldset_name);
+		$fieldset = Fieldset::instance($fieldset_name);
 		if(! $fieldset) {
-			$fieldset = \Fieldset::forge($fieldset_name, $config);
+			$fieldset = Fieldset::forge($fieldset_name, $config);
 			self::_process_fieldset_definition($fieldset, $name);
-			$fieldset->hidden('_fieldset_name', $name);
-			$fieldset->hidden('_fieldset_model', get_called_class());
+			$fieldset->add(array('name' => '_fieldset_name', 'value' => $name, 'type' => 'hidden'));
+			$fieldset->add(array('name' => '_fieldset_model', 'value' => get_called_class(), 'type' => 'hidden'));
 		}
 		return $fieldset;
 	}
 
 	/**
-	 * Process a fieldset defintion by adding each found field in the
-	 * specified defintion to the given Fieldset instance. Each individual
+	 * Process a fieldset definition by adding each found field in the
+	 * specified definition to the given Fieldset instance. Each individual
 	 * field is processed by the _process_field method.
 	 *
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
 	 * @param string $name The definition name
+	 * @param null $hierarchy
 	 */
 	protected static function _process_fieldset_definition($fieldset, $name, $hierarchy = null) {
 		foreach(static::_fieldset($name) as $field)
@@ -235,29 +272,35 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
 	 * @param string $field Field definition
 	 * @param string $definition_name the fieldset definition name
-	 * @return mixed irrelevant
+	 * @param $hierarchy
 	 */
 	protected static function _process_field($fieldset, $field, $definition_name, $hierarchy) {
 		$info = explode(':', $field, 2);
-		if(count($info) == 1)
-			return self::_add_field($fieldset, $field, $definition_name, $hierarchy);
+		if(count($info) == 1) {
+			self::_add_field($fieldset, $field, $definition_name, $hierarchy);
+			return;
+		}
 
 		switch($info[0]) {
 			case 'extend':
 				// add the fields from this other definition (name is second "parameter")
-				return self::_process_fieldset_definition($fieldset, $info[1], $hierarchy);
+				self::_process_fieldset_definition($fieldset, $info[1], $hierarchy);
+				break;
 			case 'special':
 				// add this special field
-				return self::_add_special_field($fieldset, $info[1], $definition_name);
+				self::_add_special_field($fieldset, $info[1], $definition_name);
+				break;
 			case 'many':
 				// add a field for ids in a many to many relation
 				$field_name = static::$_reference_many[$info[1]]['fk'];
-				return self::_add_field($fieldset, $field_name, $definition_name, $hierarchy);
+				self::_add_field($fieldset, $field_name, $definition_name, $hierarchy);
+				break;
 			default:
-				// first "parameter" is considered like a model classname, second "parameter" is the
+				// first "parameter" is considered like a model class name, second "parameter" is the
 				// definition name in this other model class.
 				$args = array($fieldset, $info[1], static::update_hierarchy($hierarchy));
-				return call_user_func_array(array($info[0], '_process_fieldset_definition'), $args);
+				call_user_func_array(array($info[0], '_process_fieldset_definition'), $args);
+				break;
 		}
 	}
 
@@ -265,8 +308,11 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * Add the field with the given name to the fieldset.
 	 *
 	 * @param Fieldset $fieldset Fieldset instance to whom we must add the fields
-	 * @param string $definition_name the fieldset definition name
 	 * @param string $field Field definition
+	 * @param string $definition_name the fieldset definition name
+	 * @param $hierarchy
+	 * @throws Model_Exception
+	 * @return void
 	 */
 	protected static function _add_field($fieldset, $field, $definition_name, $hierarchy) {
 		$label = static::_labels($field, $definition_name);
@@ -329,6 +375,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * Compute the name to use for a field in a fieldset.
 	 *
 	 * @param string $field name of the field
+	 * @param $hierarchy
 	 * @param string $model name of the model or get_called_class() if null
 	 * @return string the name of the field for the fieldset
 	 */
@@ -402,20 +449,22 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * If the method is called trough Model_Base, the _fieldset_model instance will
 	 * be returned.
 	 *
-	 * @param $data Default value
-	 * @return Model_?|false The created / updated model or false if an error occured
+	 * @param array $data Default value
+	 * @param null $hierarchy
+	 * @throws Model_Exception
+	 * @return Model_Base|bool The created / updated model or false if an error occurred
 	 */
 	public static function process_fieldset_input(array $data = array(), $hierarchy = null) {
-		if (! \Input::method('POST') && empty($data))
+		if (! Input::method('POST') && empty($data))
 			return false;
 
-		$model = \Input::post('_fieldset_model', \Arr::get($data, '_fieldset_model', get_called_class()));
-		$definition = \Input::post('_fieldset_name', \Arr::get($data, '_fieldset_name'));
+		$model = Input::post('_fieldset_model', Arr::get($data, '_fieldset_model', get_called_class()));
+		$definition = Input::post('_fieldset_name', Arr::get($data, '_fieldset_name'));
 
-		// replace values from $data with POST content if existant. This is needed
-		// because these values takes precedance over POST for validation.
+		// replace values from $data with POST content if existent. This is needed
+		// because these values takes precedence over POST for validation.
 		foreach($data as $k => $v)
-			$data[$k] = \Input::post($k, $data[$k]);
+			$data[$k] = Input::post($k, $data[$k]);
 
 
 		if(! empty($_FILES)) {
@@ -450,19 +499,19 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		self::_process_fieldset_input($model, $definition, $fields_per_class, $data, $hierarchy);
 
 		$references = array();
-		if(isset($model::$_reference_many))
-			foreach($fields_per_class as $class => $data) {
-				if(! isset($model::$_reference_many[$class]))
-					continue;
+		foreach($fields_per_class as $class => $data) {
+			if(! isset($model::$_reference_many[$class]))
+				continue;
 
-				$ids = $data[$model::$_reference_many[$class]['fk']];
+			$ids = $data[$model::$_reference_many[$class]['fk']];
 
-				if(! is_array($ids))
-					$ids = array($ids);
-				$references[$class] = $ids;
-				unset($fields_per_class[$class]);
-			}
+			if(! is_array($ids))
+				$ids = array($ids);
+			$references[$class] = $ids;
+			unset($fields_per_class[$class]);
+		}
 
+		/** @var $instances Model_Base[]  */
 		$instances = array();
 		foreach($fields_per_class as $class => $fields) {
 			$instances[$class] = null;
@@ -485,7 +534,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 
 			$status_tmp = $instances[$model]->_save_reference_many($references);
 			$status = self::_combine_save_results($status, $status_tmp);
-		} catch(Exception $e) {
+		} catch(\Exception $e) {
 			\Log\Log::error($e);
 			return false;
 		}
@@ -497,7 +546,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	}
 
 	/**
-	 * Do the processing of fieldset defininition and store every found and
+	 * Do the processing of fieldset definition and store every found and
 	 * relevant fields sorted by model names in the $fields array passed by
 	 * reference.
 	 *
@@ -505,12 +554,14 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @param string $definition Base definition name
 	 * @param array $fields (by reference) list of processed fields
 	 * @param array $data default values
+	 * @param $hierarchy
+	 * @return void
 	 */
 	private static function _process_fieldset_input($model, $definition, array &$fields, array $data, $hierarchy) {
 		if(! isset($fields[$model]))
 				$fields[$model] = array();
 
-		$fields[$model][static::primary_key()] = \Input::post(static::_field_name(static::primary_key(), $hierarchy, $model));
+		$fields[$model][static::primary_key()] = Input::post(static::_field_name(static::primary_key(), $hierarchy, $model));
 
 		foreach($model::_fieldset($definition) as $field) {
 			$info = explode(':', $field, 2);
@@ -537,17 +588,18 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 
 	/**
 	 * Retrieve the value for the given field from the POST data, the default value passed as a parameter
-	 * or the default values set on the class as a last ressort.
+	 * or the default values set on the class as a last resort.
 	 *
 	 * @param string $model Base model name
 	 * @param string $field field name
 	 * @param array $data default values
+	 * @param $hierarchy
 	 * @return string the value
 	 */
 	private static function _get_field_value($model, $field, $data, $hierarchy) {
 		$name = self::_field_name($field, $hierarchy, $model);
-		$default = isset($model::$_defaults) ? \Arr::get($model::$_defaults, $field, null) : null;
-		$value = \Input::post($name, \Arr::get($data, $name, $default));
+		$default = Arr::get($model::$_defaults, $field, null);
+		$value = Input::post($name, Arr::get($data, $name, $default));
 		return $value;
 	}
 
@@ -558,24 +610,21 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return boolean
 	 */
 	private function _save_reference_many(array $references) {
-		$result = 0;
-
 		$sql = '';
-		if(isset(static::$_reference_many))
-			foreach(static::$_reference_many as $model => $data) {
-				if(! isset($references[$model]) || ! is_array($references[$model]))
-					continue;
+		foreach(static::$_reference_many as $model => $data) {
+			if(! isset($references[$model]) || ! is_array($references[$model]))
+				continue;
 
-				$values = array();
-				foreach($references[$model] as $id)
-					$values[] = '('.$this->id.', '.$id.') ';
+			$values = array();
+			foreach($references[$model] as $id)
+				$values[] = '('.$this->{static::primary_key()}.', '.$id.') ';
 
-				$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->id.'; ';
-				$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
-			}
+			$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->{static::primary_key()}.'; ';
+			$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
+		}
 
 		if(! empty($sql))
-			return \DB::query($sql)->execute();
+			return DB::query($sql)->execute();
 		else
 			return true;
 	}
@@ -584,7 +633,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * Save the various references of the model and then assign the ids to the foreign key column.
 	 *
 	 * @param bool $validate do we have to validate
-	 * @param array $instances Array of instances of various references model with the form 'Model_Name' => instance
+	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
 	 * @return array|int|bool
 	 *        false if the validation failed
 	 *        On UPDATE : number of affected rows
@@ -592,9 +641,6 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 */
 	private function _save_reference_one($validate, array &$instances) {
 		$result = 0;
-
-		if(! isset(static::$_reference_one))
-			return $result;
 
 		foreach(static::$_reference_one as $class => $fk) {
 			if(! isset($instances[$class]))
@@ -614,7 +660,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * Save the various references of the model and then assign the ids to the foreign key column.
 	 *
 	 * @param bool $validate do we have to validate
-	 * @param array $instances Array of instances of various references model with the form 'Model_Name' => instance
+	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
 	 * @return array|int|bool
 	 *        false if the validation failed
 	 *        On UPDATE : number of affected rows
@@ -641,14 +687,15 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	}
 
 	/**
-	 * Does the actual saving job (_refrence_one and current model).
+	 * Does the actual saving job (_reference_one and current model).
 	 *
-	 * @param bool $validate  wether to validate the input
-	 * @param array $instances Array of instances of various _reference_one model with the form 'Model_Name' => instance
+	 * @param bool $validate  whether to validate the input
+	 * @param Model_Base[] $instances Array of instances of various _reference_one model with the form 'Model_Name' => instance
+	 * @param bool $with_reference_one
 	 * @return array|int|bool
-	 *		false if the validation failed
-	 *		On UPDATE : number of affected rows
-	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	private function _do_save($validate, array &$instances, $with_reference_one = true) {
 		if($with_reference_one) {
@@ -697,32 +744,33 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * Wraps the saving process in transaction if asked, the actual job is done by _do_save().
 	 * The references defined in the $_reference_one static variable are also saved.
 	 *
-	 * @param bool $validate  wether to validate the input
-	 * @param array $instances Array of instances of various referenced models with the form 'Model_Name' => instance
+	 * @param bool $validate  whether to validate the input
+	 * @param Model_Base[] $instances Array of instances of various referenced models with the form 'Model_Name' => instance
 	 * @param bool $transaction Do we use transaction ?
+	 * @throws \Exception
 	 * @return array|int|bool
-	 *		false if the validation failed
-	 *		On UPDATE : number of affected rows
-	 *		On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
 	 */
 	public function save($validate = true, array &$instances = array(), $transaction = true) {
 		// disable transaction mode if we are already in one
-		$transaction = $transaction && ! \Database_Connection::instance(null)->in_transaction();
+		$transaction = $transaction && ! Database_Connection::instance(null)->in_transaction();
 
 		if($transaction)
-			\Fuel\Core\DB::start_transaction();
+			DB::start_transaction();
 
 		try {
 			$status = self::_do_save($validate, $instances);
 			if(! $status)
 				\Log\Log::error('Validation failed : '.$this->validation()->show_errors());
-		} catch(Exception $e) {
-			\Fuel\Core\DB::rollback_transaction();
+		} catch(\Exception $e) {
+			DB::rollback_transaction();
 			throw $e;
 		}
 
 		if($transaction)
-			\Fuel\Core\DB::commit_transaction();
+			DB::commit_transaction();
 		return $status;
 	}
 
@@ -734,7 +782,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return Database_Result unchanged database result
 	 */
 	protected function post_save($result) {
-		$uuid = \Fuel\Core\DB::query('SELECT @last_uuid as id')->execute();
+		$uuid = DB::query('SELECT @last_uuid as id')->execute();
 		$this->{static::primary_key()} = $uuid[0]['id'];
 		Cache::save($this->{static::primary_key()}, $this);
 		return $result;
@@ -793,21 +841,21 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		if(substr($name, 0, 6) == 'Model_')
 			$model_name = $name;
 		else
-			$model_name = 'Model_'.ucfirst(str_replace('_', '', \Inflector::classify($name)));
+			$model_name = 'Model_'.ucfirst(str_replace('_', '', Inflector::classify($name)));
 
 		$found = 0;
-		if(isset(static::$_reference_one) && isset(static::$_reference_one[$model_name])) {
+		$field = static::primary_key();
+		$method = null;
+		if(isset(static::$_reference_one[$model_name])) {
 			$field = static::$_reference_one[$model_name];
 			$method = 'find_by_pk';
 			++$found;
 		}
-		if(isset(static::$_referenced_by) && isset(static::$_referenced_by[$model_name])) {
-			$field = 'id';
+		if(isset(static::$_referenced_by[$model_name])) {
 			$method = 'find_by_'.static::$_referenced_by[$model_name];
 			++$found;
 		}
-		if(isset(static::$_reference_many) && isset(static::$_reference_many[$model_name])) {
-			$field = 'id';
+		if(isset(static::$_reference_many[$model_name])) {
 			$method = 'find_many_by_'.static::$_reference_many[$model_name]['lk'];
 			++$found;
 		}
@@ -828,8 +876,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 *
 	 * @param   string  $name  The method name
 	 * @param   string  $args  The method args
+	 * @throws \BadMethodCallException
 	 * @return  mixed   Based on static::$return_type
-	 * @throws  BadMethodCallException
 	 */
 	public function __call($name, $args) {
 		try {
@@ -844,53 +892,53 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * model instance.
 	 *
 	 * @param Fieldset $fieldset
-	 * @param bool $with_references Also get references and populate their fields aswell
+	 * @param bool $with_references Also get references and populate their fields as well
+	 * @param null $hierarchy
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
 	public function populate($fieldset, $with_references = true, $hierarchy = null) {
 		if(isset($this->{static::primary_key()})) {
 			$name = static::_field_name(static::primary_key(), $hierarchy);
-			$fieldset->hidden($name, $this->{static::primary_key()});
+			$fieldset->add(array('name' => $name, 'value' => $this->{static::primary_key()}, 'type' => 'hidden'));
 		}
 
 		foreach($this->to_array() as $name => $value) {
 			$field_name = static::_field_name($name, $hierarchy);
 			$field = $fieldset->field($field_name);
 			if($field)
-				$field->set_value(\Input::post($field_name, $value), true);
+				$field->set_value(Input::post($field_name, $value), true);
 		}
 
 		if($with_references) {
-			if(isset(static::$_reference_one))
-				foreach(static::$_reference_one as $class => $fk)
-					if(isset($this->{$fk})) {
-						$reference = $class::find_by_pk($this->{$fk});
-						if($reference)
-							$reference->populate($fieldset, $with_references, static::update_hierarchy($hierarchy));
-					}
+			foreach(static::$_reference_one as $class => $fk)
+				if(isset($this->{$fk})) {
+					/** @var $reference Model_Base */
+					$reference = $class::find_by_pk($this->{$fk});
+					if($reference)
+						$reference->populate($fieldset, $with_references, static::update_hierarchy($hierarchy));
+				}
 
-			if (isset(static::$_referenced_by))
-				foreach (static::$_referenced_by as $class => $fk)
-					if(isset($this->{static::primary_key()})) {
-						$referenced = $class::find_by($fk, $this->{static::primary_key()});
-						if($referenced) {
-							if(is_array($referenced))
-								$referenced = current($referenced);
-						} else
-							$referenced = $class::forge(array($fk => $this->{static::primary_key()}));
-						$referenced->populate($fieldset, false, static::update_hierarchy($hierarchy));
-					}
+			foreach (static::$_referenced_by as $class => $fk)
+				if(isset($this->{static::primary_key()})) {
+					/** @var $referenced Model_Base|Model_Base[] */
+					$referenced = $class::find_by($fk, $this->{static::primary_key()});
+					if($referenced) {
+						if(is_array($referenced))
+							$referenced = current($referenced);
+					} else
+						$referenced = $class::forge(array($fk => $this->{static::primary_key()}));
+					$referenced->populate($fieldset, false, static::update_hierarchy($hierarchy));
+				}
 
-			if(isset(static::$_reference_many))
-				foreach(static::$_reference_many as $class => $data)
-					if(isset($this->{static::primary_key()})) {
-						$ids = $class::ids_for_find_many(get_called_class(), $this->{static::primary_key()});
+			foreach(static::$_reference_many as $class => $data)
+				if(isset($this->{static::primary_key()})) {
+					$ids = $class::ids_for_find_many(get_called_class(), $this->{static::primary_key()});
 
-						$field_name = static::_field_name($data['fk'], $hierarchy);
-						$field = $fieldset->field($field_name);
-						if($field)
-							$field->set_value(\Input::post($field_name, $ids), true);
-					}
+					$field_name = static::_field_name($data['fk'], $hierarchy);
+					$field = $fieldset->field($field_name);
+					if($field)
+						$field->set_value(Input::post($field_name, $ids), true);
+				}
 		}
 
 		return $fieldset;
@@ -902,7 +950,6 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected function pre_update(&$query) {
 		if(! Acl::model_access($this, 'update'))
 			throw new HttpForbiddenException();
-		return parent::pre_update($query);
 	}
 
 	/**
@@ -911,7 +958,6 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected function pre_delete(&$query) {
 		if(! Acl::model_access($this, 'delete'))
 			throw new HttpForbiddenException();
-		return parent::pre_delete($query);
 	}
 
 	/**
@@ -920,7 +966,6 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected function pre_save(&$query) {
 		if(! Acl::model_access($this, 'save'))
 			throw new HttpForbiddenException();
-		return parent::pre_save($query);
 	}
 
 	/**
@@ -929,6 +974,5 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected static function pre_find(&$query) {
 		if(! Acl::model_access(get_called_class(), 'find'))
 			throw new HttpForbiddenException();
-		return parent::pre_find($query);
 	}
 }

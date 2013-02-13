@@ -1,12 +1,25 @@
 <?php
 
-namespace Base;
+namespace KrtekBase;
 
 /**
- * Base exception for various Model related exceptions.
+ * Base exception for various Cache related exceptions.
  */
 class Cache_Exception extends \Fuel\Core\FuelException { }
 
+/**
+ * Class to help cache results from a database query.
+ *
+ * The prerequisite is that all stored objects have an unique id.
+ *
+ * @package krtek-Base
+ * @category BaseInterfaces
+ * @author Gilles Meier <krtek4@gmail.com>
+ * @version 1.0
+ * @license Affero GPLv3 http://www.gnu.org/licenses/agpl-3.0-standalone.html
+ * @copyright 2013 Gilles Meier <krtek4@gmail.com>
+ * @link https://github.com/krtek4/fuel-krtek-base
+ */
 class Cache {
 	protected static $cache = array();
 
