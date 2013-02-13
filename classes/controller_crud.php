@@ -233,7 +233,7 @@ abstract class Controller_Crud extends Controller_Base {
 
 	protected function message($class, $msg) {
 		if(\Fuel\Core\Package::loaded('messages'))
-			\Messages\Messages::instance()->message('success', self::get_message('delete_success'));
+			\Messages\Messages::instance()->message($class, $msg);
 	}
 
 	/**
