@@ -66,7 +66,14 @@ abstract class Controller_Base extends \Controller_Template {
 	 * @return bool true if this is an AJAX request
 	 */
 	final protected function is_ajax() {
-		return \Input::is_ajax();
+		return \Input::is_ajax() && ! $this->is_pjax();
+	}
+
+	/**
+	 * @return bool true if this is a PJAX request
+	 */
+	final protected function is_pjax() {
+		return \Fuel\Core\Input::server('HTTP_X_PJAX', 'false') === 'true';
 	}
 
 	/**
