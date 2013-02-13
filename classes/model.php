@@ -368,7 +368,22 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 */
 	protected static function _add_special_field($fieldset, $field, $definition_name) {
 		$label = static::_labels($field, $definition_name);
-		$fieldset->{$field}($label);
+		$attributes = array();
+		switch($field) {
+			case 'cancel':
+				$attributes['class'] = 'cancel';
+				$attributes['type'] = 'reset';
+				$attributes['value'] = $label;
+				$label = '';
+				break;
+			case 'submit':
+			case 'reset':
+				$attributes['type'] = $field;
+				$attributes['value'] = $label;
+				$label = '';
+				break;
+		}
+		$fieldset->add($field, $label, $attributes);
 	}
 
 	/**
