@@ -586,6 +586,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 				switch($info[0]) {
 					case 'extend':
 						$new_model = $model; // extend a definition from the same model
+						$new_hierarchy = $hierarchy;
 						break;
 					case 'special':
 						continue 2; // special field, nothing to do
@@ -595,8 +596,9 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 						continue 2;
 					default:
 						$new_model = $info[0]; // inclusion of a definition from another model
+						$new_hierarchy = $model::update_hierarchy($hierarchy);
 				}
-				self::_process_fieldset_input($new_model, $info[1], $fields, $data, $model::update_hierarchy($hierarchy));
+				self::_process_fieldset_input($new_model, $info[1], $fields, $data, $new_hierarchy);
 			}
 		}
 	}
