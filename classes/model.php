@@ -781,9 +781,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 
 		try {
 			$status = self::_do_save($validate, $instances);
-			if(! $status)
-				\Log\Log::error('Validation failed : '.$this->validation()->show_errors());
 		} catch(\Exception $e) {
+			\Log\Log::error('[' . get_called_class() . '] Rollback transaction');
 			DB::rollback_transaction();
 			throw $e;
 		}
@@ -994,4 +993,18 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		if(! Acl::model_access(get_called_class(), 'find'))
 			throw new HttpForbiddenException();
 	}
+
+	/**
+	 * Log any eventual errors to ease debugging.
+	 */
+	protected function post_validate($result) {
+		if (! $result) {
+			$errors = array();
+			foreach($this->validation()->error() as $name => $error)
+				$errors[] = $name.'('. $error->rule.')';
+			\Log\Log::error('[' . get_called_class() . '] Validation failed : ' . implode(' / ', $errors));
+		}
+		return $result;
+	}
+
 }
