@@ -345,8 +345,11 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			$attributes['options'] = array();
 			$rows = call_user_func_array($callback, $callback_params);
 			if($rows)
-				foreach($rows as $row)
-					$attributes['options'][$row['id']] = $row->select_name();
+				foreach($rows as $k => $row)
+					if(is_object($row))
+						$attributes['options'][$row['id']] = $row->select_name();
+					else
+						$attributes['options'][$k] = $row;
 		}
 
 		// Set certain types through specific setter
