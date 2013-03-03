@@ -375,6 +375,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		$attributes = static::_attributes($field, $definition_name);
 		switch($field) {
 			case 'cancel':
+				$attributes['class'] = isset($attributes['class']) ? $attributes['class'] : '';
 				$attributes['class'] .= ' cancel';
 				$attributes['type'] = 'reset';
 				$attributes['value'] = $label;
