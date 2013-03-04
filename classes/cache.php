@@ -51,9 +51,13 @@ class Cache {
 	 * @throws Cache_Exception
 	 * @return Model_Base
 	 */
-	public static function get($uuid) {
-		if(static::has($uuid))
-			return static::$cache[$uuid];
+	public static function get($uuid, $class = null) {
+		if(static::has($uuid)) {
+			$instance = static::$cache[$uuid];
+			if(! is_null($class) && ! is_a($instance, $class))
+				throw new Cache_Exception("Found object with the wrong instance type : ".$uuid);
+			return $instance;
+		}
 		throw new Cache_Exception("Nothing for this uuid : ".$uuid);
 	}
 

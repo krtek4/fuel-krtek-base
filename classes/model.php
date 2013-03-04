@@ -128,7 +128,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	public static function find_by_pk($value, $refresh = false)
 	{
 		if(Cache::has($value) && ! $refresh)
-			return Cache::get($value);
+			return Cache::get($value, get_called_class());
 
 		return static::find_one_by(static::$_table_name.'.'.static::primary_key(), $value);
 	}
