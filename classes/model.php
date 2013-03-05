@@ -125,12 +125,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @param   bool $refresh bypass the cache ?
 	 * @return  null|Model_Base  Either null or a new Model object
 	 */
-	public static function find_by_pk($value, $refresh = false)
-	{
-		if(Cache::has($value) && ! $refresh)
-			return Cache::get($value, get_called_class());
-
-		return static::find_one_by(static::$_table_name.'.'.static::primary_key(), $value);
+	public static function find_by_pk($value, $refresh = false) {
+		return static::find_one_by(static::primary_key(), $value);
 	}
 
 	/**
@@ -140,9 +136,13 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @param   mixed  $column  The column to search
 	 * @param   mixed  $value   The value to find
 	 * @param   string $operator The operator to use for the comparison
+	 * @param   bool $refresh bypass the cache ?
 	 * @return  null|Model_Base  Either null or a new Model object
 	 */
-	public static function find_one_by($column, $value = null, $operator = '=') {
+	public static function find_one_by($column, $value = null, $operator = '=', $refresh = false) {
+		if(Cache::has($value, $column) && ! $refresh)
+			return Cache::get($value, get_called_class(), $column);
+
 		if(strpos($column, '.') === false)
 			$column = static::$_table_name.'.'.$column;
 
