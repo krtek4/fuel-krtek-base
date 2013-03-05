@@ -158,16 +158,22 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return array id to retrieve from the database
 	 */
 	protected static function ids_for_find_many($model, $id) {
-		$data = static::$_reference_many[$model];
+		$info = static::$_reference_many[$model];
+		$data = Cache::results_cache_get($info['table'], $info['fk'], $id);
+		if(is_null($data)) {
+			$sql = 'SELECT * FROM '.$info['table'];
+			$result = \Fuel\Core\DB::query($sql)->execute()->as_array();
 
-		$sql = 'SELECT '.$data['lk'].' FROM '.$data['table'].' WHERE '.$data['fk'].' = '.$id;
-		$result = DB::query($sql)->execute()->as_array();
-
-		$ids = array();
-		foreach($result as $r) {
-			$ids[] = $r[$data['lk']];
+			$data = array();
+			foreach($result as $r) {
+				if(! isset($data[$r[$info['fk']]]))
+					$data[$r[$info['fk']]] = array();
+				$data[$r[$info['fk']]][] = $r[$info['lk']];
+			}
+			Cache::results_cache_save($info['table'], $info['fk'], $data);
+			$data = isset($data[$id]) ? $data[$id] : array();
 		}
-		return $ids;
+		return $data;
 	}
 
 	/**
@@ -805,7 +811,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return Database_Result unchanged database result
 	 */
 	protected function post_save($result) {
-		$uuid = DB::query('SELECT @last_uuid as id')->execute();
+		$uuid = DB::query('
+		 @last_uuid as id')->execute();
 		$this->{static::primary_key()} = $uuid[0]['id'];
 		Cache::save($this->{static::primary_key()}, $this);
 		return $result;

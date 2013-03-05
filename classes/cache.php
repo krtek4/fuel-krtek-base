@@ -124,4 +124,42 @@ class Cache {
 		} else
 			$model::find_all();
 	}
+
+	protected static $results_cache = array();
+
+	/**
+	 * Cache a complete result for a query on a table for a particular column.
+	 * SHOULD NOT BE USED OUTSIDE OF MODEL_BASE
+	 *
+	 * @param $table The table
+	 * @param $column The column
+	 * @param $data Results of the whole query with the format id => result()
+	 */
+	public static function results_cache_save($table, $column, $data) {
+		if(! isset(static::$results_cache[$table]))
+			static::$results_cache[$table] = array();
+
+		if(! isset(static::$results_cache[$table][$column]))
+			static::$results_cache[$table][$column] = array();
+
+		foreach($data as $id => $result)
+			static::$results_cache[$table][$column][$id] = $result;
+	}
+
+	/**
+	 * Get the cached results for a query on a table for a particular column
+	 * SHOULD NOT BE USED OUTSIDE OF MODEL_BASE
+	 *
+	 * @param $table The table
+	 * @param $column The column
+	 * @param $id The id we want the result for
+	 * @return array|null if result is cached, an array (can be empty), null otherwise
+	 */
+	public static function results_cache_get($table, $column, $id) {
+		if(isset(static::$results_cache[$table][$column][$id]))
+			return static::$results_cache[$table][$column][$id];
+		if(isset(static::$results_cache[$table][$column]))
+			return array();
+		return null;
+	}
 }
