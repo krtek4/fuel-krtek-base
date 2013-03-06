@@ -811,8 +811,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return Database_Result unchanged database result
 	 */
 	protected function post_save($result) {
-		$uuid = DB::query('
-		 @last_uuid as id')->execute();
+		$uuid = DB::query('SELECT @last_uuid AS id')->execute();
 		$this->{static::primary_key()} = $uuid[0]['id'];
 		Cache::save($this->{static::primary_key()}, $this);
 		return $result;
