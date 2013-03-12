@@ -226,8 +226,8 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @return mixed
 	 */
 	protected function get_param($num) {
-		if(count($this->request->method_params) > $num)
-			return $this->request->method_params[$num];
+		if(count($this->request->method_params) == 2 && count($this->request->method_params[1]) > $num)
+			return $this->request->method_params[1][$num];
 		return null;
 	}
 
