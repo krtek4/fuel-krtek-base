@@ -177,7 +177,7 @@ abstract class Controller_Crud extends Controller_Base {
 			$vm = ViewModel::forge('Crud', $action);
 		}
 		if(! is_null($instance)) {
-			$vm->set(self::_var_name($plural), $instance);
+			$vm->set(self::_var_name($plural), $instance, false);
 		}
 		$vm->set('controller', static::_view());
 		$vm->set('model', static::$_model);
