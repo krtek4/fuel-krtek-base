@@ -119,17 +119,6 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	}
 
 	/**
-	 * Specify the table for the column to avoid problems when joining.
-	 *
-	 * @param   mixed  $value  The primary key value to find
-	 * @param   bool $refresh bypass the cache ?
-	 * @return  null|Model_Base  Either null or a new Model object
-	 */
-	public static function find_by_pk($value, $refresh = false) {
-		return static::find_one_by(static::primary_key(), $value);
-	}
-
-	/**
 	 * Specify the table for the column to avoid problems when joining. If a table
 	 * is already specified, nothing's done.
 	 *
