@@ -7,6 +7,10 @@ namespace KrtekBase;
  */
 class Cache_Exception extends \Fuel\Core\FuelException { }
 
+class Cache_NotFound_Exception extends Cache_Exception { }
+class Cache_WrongType_Exception extends Cache_Exception { }
+class Cache_NoMapping_Exception extends Cache_Exception { }
+
 /**
  * Class to help cache results from a database query.
  *
@@ -33,10 +37,12 @@ class Krtek_Cache {
 	 * @return Model_Base
 	 */
 	public static function save($uuid, $value, $column = null) {
+		// TODO: use a method on Model_Base to get the name of the PK
 		if(! is_null($column) && $column != 'id') {
 			if(! isset(static::$mapping[$column]))
 				static::$mapping[$column] = array();
 
+			// TODO: use pk() here once we merge the refactoring branch
 			static::$mapping[$column][$uuid] = $value->id;
 			$uuid = $value->id;
 		}
@@ -57,6 +63,7 @@ class Krtek_Cache {
 			return isset(static::$cache[$uuid]) && ! empty(static::$cache[$uuid]);
 		} else if(isset(static::$mapping[$column][$uuid]))
 			return static::has(static::$mapping[$column][$uuid]);
+		return false;
 	}
 
 	/**
@@ -73,12 +80,13 @@ class Krtek_Cache {
 			if(static::has($uuid)) {
 				$instance = static::$cache[$uuid];
 				if(! is_null($class) && ! is_a($instance, $class))
-					throw new Cache_Exception("Found object with the wrong instance type : ".$uuid);
+					throw new Cache_WrongType_Exception("Found object with the wrong instance type : ".$uuid);
 				return $instance;
 			}
-			throw new Cache_Exception("Nothing for this uuid : ".$uuid);
+			throw new Cache_NotFound_Exception("Nothing for this uuid : ".$uuid);
 		} else if(isset(static::$mapping[$column][$uuid]))
 			return static::get(static::$mapping[$column][$uuid], $class);
+		throw new Cache_NoMapping_Exception("No mapping found for : $column and uuid $uuid.");
 	}
 
 	/**
@@ -153,13 +161,13 @@ class Krtek_Cache {
 	 * @param $table string The table
 	 * @param $column string The column
 	 * @param $id int The id we want the result for
-	 * @return array|null if result is cached, an array (can be empty), null otherwise
+	 * @return mixed the result if cached, null if we have data for $table / $column but not for this id, false if nothing found.
 	 */
 	public static function results_cache_get($table, $column, $id) {
 		if(isset(static::$results_cache[$table][$column][$id]))
 			return static::$results_cache[$table][$column][$id];
 		if(isset(static::$results_cache[$table][$column]))
-			return array();
-		return null;
+			return null;
+		return false;
 	}
 }

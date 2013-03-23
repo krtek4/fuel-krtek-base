@@ -150,6 +150,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		$info = static::$_reference_many[$model];
 		$data = Krtek_Cache::results_cache_get($info['table'], $info['fk'], $id);
 		if(is_null($data)) {
+			$data = array();
+		} else if($data === false) {
 			$sql = 'SELECT * FROM '.$info['table'];
 			$result = \Fuel\Core\DB::query($sql)->execute()->as_array();
 
