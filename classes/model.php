@@ -893,6 +893,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			case 0:
 				throw new Model_Exception('No relation found for this name : '.$name.' '.$model_name);
 			case 1:
+				if(! isset($this->{$field}))
+					throw new Model_Exception('The needed field was not found : '.$field.' on '.get_called_class());
 				$id = $this->{$field};
 				return call_user_func_array($model_name.'::'.$method, array($id));
 			default:
