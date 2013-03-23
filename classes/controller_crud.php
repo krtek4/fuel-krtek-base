@@ -57,7 +57,7 @@ abstract class Controller_Crud extends Controller_Base {
 		if(is_null(static::$_model))
 			static::$_model = 'Model_'.  ucfirst(static::$_friendly_name);
 
-		Cache::preload(static::$_preload);
+		Krtek_Cache::preload(static::$_preload);
 	}
 
 	/**

@@ -20,7 +20,7 @@ class Cache_Exception extends \Fuel\Core\FuelException { }
  * @copyright 2013 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-class Cache {
+class Krtek_Cache {
 	protected static $cache = array();
 	protected static $mapping = array();
 
@@ -131,9 +131,9 @@ class Cache {
 	 * Cache a complete result for a query on a table for a particular column.
 	 * SHOULD NOT BE USED OUTSIDE OF MODEL_BASE
 	 *
-	 * @param $table The table
-	 * @param $column The column
-	 * @param $data Results of the whole query with the format id => result()
+	 * @param $table string The table
+	 * @param $column string The column
+	 * @param $data Model_Base[] Results of the whole query with the format id => result()
 	 */
 	public static function results_cache_save($table, $column, $data) {
 		if(! isset(static::$results_cache[$table]))
@@ -150,9 +150,9 @@ class Cache {
 	 * Get the cached results for a query on a table for a particular column
 	 * SHOULD NOT BE USED OUTSIDE OF MODEL_BASE
 	 *
-	 * @param $table The table
-	 * @param $column The column
-	 * @param $id The id we want the result for
+	 * @param $table string The table
+	 * @param $column string The column
+	 * @param $id int The id we want the result for
 	 * @return array|null if result is cached, an array (can be empty), null otherwise
 	 */
 	public static function results_cache_get($table, $column, $id) {
