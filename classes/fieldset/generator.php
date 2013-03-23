@@ -3,6 +3,7 @@
 namespace KrtekBase\Fieldset;
 
 use Fuel\Core\Fieldset;
+use KrtekBase\Model_Base;
 
 /**
  * Generate fieldsets based on meta-information defined on the
@@ -20,15 +21,6 @@ class Fieldset_Generator extends Fieldset_Holder {
 	/** @var $instances Fieldset_Generator[] */
 	static private $instances = array();
 
-	protected function __construct($definition, $class, array $config) {
-		parent::__construct(Fieldset::forge($class.'_'.$definition, $config));
-
-		$this->hidden('_fieldset_name', $definition);
-		$this->hidden('_fieldset_model', $class);
-
-		Fieldset_Parser::process($this->fieldset(), $definition, $class);
-	}
-
 	/**
 	 * Create a Fieldset based on the definition corresponding to
 	 * the given name. If the fieldset was already created, return
@@ -38,15 +30,42 @@ class Fieldset_Generator extends Fieldset_Holder {
 	 * able to process data automatically through the other method
 	 * proposed by this class.
 	 *
-	 * @param string $name Definition name
+	 * @param string $definition Definition name
 	 * @param string $class Model class name
 	 * @param array $config The config for this fieldset (only used upon creation)
-	 * @return Fieldset the generated fieldset
+	 * @return Fieldset_Generator the new fieldset generator
 	 */
-	public static function forge($name, $class, array $config = array()) {
+	public static function forge($definition, $class, array $config = array()) {
+		$name = $class.'_'.$definition;
 		if(! isset(static::$instances[$name])) {
-			static::$instances[$name] = new static($name, $class, $config);
+			static::$instances[$name] = new static($name, $definition, $class, $config);
 		}
-		return static::$instances[$name]->fieldset();
+		return static::$instances[$name];
+	}
+
+	private $parsed = false;
+
+	protected function __construct($name, $definition, $class, array $config) {
+		parent::__construct(Fieldset::forge($name, $config), $definition, $class, '');
+	}
+
+
+	public function parse() {
+		$this->parsed = true;
+
+		$this->hidden('_fieldset_name', $this->definition());
+		$this->hidden('_fieldset_model', $this->clazz());
+
+		Fieldset_Parser::parse($this->fieldset(), $this->definition(), $this->clazz());
+	}
+
+	public function process() {
+	}
+
+	public function populate(Model_Base $instance, $with_reference = true) {
+		if(! $this->parsed)
+			$this->parse();
+
+		Fieldset_Populator::populate($instance, $this->fieldset(), $this->definition(), $this->clazz());
 	}
 }

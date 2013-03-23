@@ -153,15 +153,15 @@ abstract class Model_Base extends Model_Crud {
 	}
 
 	/**
-	 * Retrieve a list of id for the current model which reference the the foreign
-	 * model through the association table defined in $_reference_many.
+	 * Retrieve a list of the current model instances which are related to the foreign
+	 * model through an association table and the given column.
 	 *
-	 * @param string $model referenced model name
-	 * @param int $id id of the foreign key in the association table
-	 * @return array id to retrieve from the database
+	 * @param string $column foreign column in the association table
+	 * @param int $id foreign id
+	 * @return array Model instances
 	 */
-	protected static function ids_for_find_many($model, $id) {
-		$info = static::$_reference_many[$model];
+	public static function find_many_by($column, $id) {
+		$info = static::$_reference_many['Model_'.ucfirst(substr($column, 0, - 3))];
 		$data = Krtek_Cache::results_cache_get($info['table'], $info['fk'], $id);
 		if(is_null($data)) {
 			$sql = 'SELECT * FROM '.$info['table'];
@@ -176,24 +176,9 @@ abstract class Model_Base extends Model_Crud {
 			Krtek_Cache::results_cache_save($info['table'], $info['fk'], $data);
 			$data = isset($data[$id]) ? $data[$id] : array();
 		}
-		return $data;
-	}
-
-	/**
-	 * Retrieve a list of the current model instances which are related to the foreign
-	 * model through an association table and the given column.
-	 *
-	 * @param string $column foreign column in the association table
-	 * @param int $id foreign id
-	 * @return array Model instances
-	 */
-	public static function find_many_by($column, $id) {
-		$name = 'Model_'.ucfirst(substr($column, 0, -3));
-
-		$ids = static::ids_for_find_many($name, $id);
 
 		$instances = array();
-		foreach($ids as $id)
+		foreach($data as $id)
 			$instances[] = static::find_by_pk($id);
 		return $instances;
 	}
@@ -216,6 +201,15 @@ abstract class Model_Base extends Model_Crud {
 	}
 
 	/**
+	 * @param $definition
+	 * @param array $config
+	 * @return Fieldset_Generator
+	 */
+	protected static function fieldset_generator($definition, array $config = array()) {
+		return Fieldset_Generator::forge($definition, get_called_class(), $config);
+	}
+
+	/**
 	 * Create a Fieldset based on the definition corresponding to
 	 * the given name. If the fieldset was already created, return
 	 * this particular instance.
@@ -224,13 +218,29 @@ abstract class Model_Base extends Model_Crud {
 	 * able to process data automatically through the other method
 	 * proposed by this class.
 	 *
-	 * @param string $name Definition name
+	 * @param string $definition Definition name
 	 * @param array $config The config for this fieldset (only used upon creation)
 	 * @return Fieldset the generated fieldset
 	 */
-	public static function fieldset($name, array $config = array()) {
-		return Fieldset_Generator::forge($name, get_called_class(), $config);
+	public static function fieldset($definition, array $config = array()) {
+		$generator = static::fieldset_generator($definition, $config);
+		$generator->parse();
+		return $generator->fieldset();
 	}
+
+	/**
+	 * Get a meta information from this model class
+	 *
+	 * @param $name string
+	 * @throws Model_Exception
+	 * @return mixed
+	 */
+	public static function get_meta($name) {
+		if(! isset(static::$$name))
+			throw new Model_Exception("Trying to access a non-existing meta information : $name.");
+		return static::$$name;
+	}
+
 
 	/**
 	 * Return the rules for the given field name.
@@ -239,7 +249,7 @@ abstract class Model_Base extends Model_Crud {
 	 * @param string $definition_name the fieldset definition name
 	 * @return string|bool rules for the field, false of there's no rules
 	 */
-	protected static function _rules($name, $definition_name) {
+	public static function _rules($name, $definition_name) {
 		if(isset(static::$_rules[$name]))
 			return static::$_rules[$name];
 		return false;
@@ -285,9 +295,9 @@ abstract class Model_Base extends Model_Crud {
 
 			$values = array();
 			foreach($references[$model] as $id)
-				$values[] = '('.$this->{static::primary_key()}.', '.$id.') ';
+				$values[] = '('.$this->pk().', '.$id.') ';
 
-			$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->{static::primary_key()}.'; ';
+			$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->pk().'; ';
 			$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
 		}
 
@@ -378,6 +388,7 @@ abstract class Model_Base extends Model_Crud {
 			return false;
 		$result = self::_combine_save_results($result, $result_tmp);
 
+		// TODO: find how to have references filled !
 		$status_tmp = $this->_save_reference_many($references);
 		$result = self::_combine_save_results($result, $status_tmp);
 
@@ -455,25 +466,27 @@ abstract class Model_Base extends Model_Crud {
 	 */
 	protected function post_save($result) {
 		$uuid = DB::query('SELECT @last_uuid AS id')->execute();
-		$this->{static::primary_key()} = $uuid[0]['id'];
-		Krtek_Cache::save($this->{static::primary_key()}, $this);
+		$this->pk($uuid[0]['id']);
+		Krtek_Cache::save($this->pk(), $this);
 		return $result;
 	}
 
 	protected function post_update($result) {
-		Krtek_Cache::save($this->{static::primary_key()}, $this);
+		Krtek_Cache::save($this->pk(), $this);
 		return $result;
 	}
 
 	/**
 	 * Save the retrieved objects to the cache.
 	 *
-	 * @inheritDoc
+	 * @param Model_Base[] $result the result array or null when there was no result
+	 * @return Model_Base[]
 	 */
 	protected static function post_find($result) {
+		$result = parent::post_find($result);
 		if(is_array($result))
 			foreach($result as $r)
-				Krtek_Cache::save($r->{static::primary_key()}, $r);
+				Krtek_Cache::save($r->pk(), $r);
 		return $result;
 	}
 
@@ -487,6 +500,20 @@ abstract class Model_Base extends Model_Crud {
 			$ret .= '<tr><td>'.$name.'</td><td>:</td><td>'.$value.'</td></tr>';
 		}
 		return $ret.'</table>';
+	}
+
+	/**
+	 * @param int|null $value int
+	 * @return int|bool
+	 */
+	public function pk($value = null) {
+		if(! is_null($value)) {
+			$this->{static::primary_key()} = $value;
+		}
+
+		if(isset($this->{static::primary_key()}))
+			return $this->{static::primary_key()};
+		return false;
 	}
 
 	/**
@@ -565,13 +592,18 @@ abstract class Model_Base extends Model_Crud {
 	 * Populate known fields of the fieldset with value from this
 	 * model instance.
 	 *
-	 * @param Fieldset $fieldset
+	 * @param string|Fieldset $definition
 	 * @param bool $with_references Also get references and populate their fields as well
 	 * @param null $hierarchy
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
-	public function populate($fieldset, $with_references = true, $hierarchy = null) {
-
+	public function populate($definition, $with_references = true, $hierarchy = null) {
+		if($definition instanceof Fieldset) {
+			$definition = $definition->field('_fieldset_name')->get_attribute('value');
+		}
+		$generator = static::fieldset_generator($definition);
+		$generator->populate($this);
+		return $generator->fieldset();
 	}
 
 	/**

@@ -25,6 +25,11 @@ Fuel\Core\Autoloader::add_classes(array(
 	'KrtekBase\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
 	'KrtekBase\\Acl' => __DIR__.'/classes/acl.php',
 
+	'KrtekBase\\Fieldset\\Fieldset_Generator' => __DIR__.'/classes/fieldset/generator.php',
+	'KrtekBase\\Fieldset\\Fieldset_Holder' => __DIR__.'/classes/fieldset/holder.php',
+	'KrtekBase\\Fieldset\\Fieldset_Parser' => __DIR__.'/classes/fieldset/parser.php',
+	'KrtekBase\\Fieldset\\Fieldset_Populator' => __DIR__.'/classes/fieldset/populator.php',
+
 	'KrtekBase\\Controller_Crud' => __DIR__.'/classes/controller_crud.php',
 	'KrtekBase\\View_Crud' => __DIR__.'/classes/viewmodel_crud.php',
 ));

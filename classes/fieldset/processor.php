@@ -28,7 +28,7 @@ class Fieldset_Processor extends Fieldset_Holder {
 	 *
 	 * @param array $data Default value
 	 * @param null $hierarchy
-	 * @throws Model_Exception
+	 * @throws Fieldset_Exception
 	 * @return Model_Base|bool The created / updated model or false if an error occurred
 	 */
 	public static function process_fieldset_input(array $data = array(), $hierarchy = null) {
@@ -68,9 +68,9 @@ class Fieldset_Processor extends Fieldset_Holder {
 			return false;
 
 		if(empty($model))
-			throw new Model_Exception('No model provided, impossible to process fieldset.');
+			throw new Fieldset_Exception('No model provided, impossible to process fieldset.');
 		if(empty($definition))
-			throw new Model_Exception('No definition provided, impossible to process fieldset.');
+			throw new Fieldset_Exception('No definition provided, impossible to process fieldset.');
 
 		$fields_per_class = array();
 		self::_process_fieldset_input($model, $definition, $fields_per_class, $data, $hierarchy);

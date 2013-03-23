@@ -3,7 +3,7 @@
 namespace KrtekBase\Fieldset;
 
 use Fuel\Core\Fieldset;
-use KrtekBase\Model_Exception;
+use KrtekBase\Model_Base;
 
 class Fieldset_Parser extends Fieldset_Holder {
 	/**
@@ -15,94 +15,26 @@ class Fieldset_Parser extends Fieldset_Holder {
 	 * @param $class string
 	 * @param $hierarchy string
 	 */
-	public static function process($fieldset, $definition, $class, $hierarchy = null) {
+	public static function parse($fieldset, $definition, $class, $hierarchy = null) {
 		$parser = new Fieldset_Parser($fieldset, $definition, $class, $hierarchy);
-		$parser->process_definition();
-	}
-
-	/** @var $class string the related model class name */
-	private $class;
-	/** @var $definition string the definition to use */
-	private $definition;
-	/** @var $hierarchy string current hierarchy */
-	private $hierarchy;
-
-	protected function __construct($fieldset, $definition, $class, $hierarchy) {
-		parent::__construct($fieldset);
-		$this->definition = $definition;
-		$this->class = $class;
-		$this->hierarchy = $hierarchy;
+		$parser->parse_definition();
 	}
 
 	/**
-	 * Return the fieldset definition or throw
-	 * exception if not found or invalid.
+	 * Return the fieldset definition or throw exception if not found or invalid.
 	 *
-	 * @throws Model_Exception when fieldset not found or invalid
+	 * @throws Fieldset_Exception when fieldset not found or invalid
 	 * @return array fieldset definition
 	 */
-	protected function definition() {
+	protected function fields() {
 		$fieldsets = $this->static_variable('_fieldsets');
-		if(! array_key_exists($this->definition, $fieldsets))
-			throw new Model_Exception("Unknown fieldset name : ".$this->class.'->'.$this->definition);
+		if(! array_key_exists($this->definition(), $fieldsets))
+			throw new Fieldset_Exception("Unknown fieldset name : ".$this->clazz().'->'.$this->definition());
 
-		if(! is_array($fieldsets[$this->definition]))
-			throw new Model_Exception("Invalid fieldset definition : ".$this->class.'->'.$this->definition);
+		if(! is_array($fieldsets[$this->definition()]))
+			throw new Fieldset_Exception("Invalid fieldset definition : ".$this->clazz().'->'.$this->definition());
 
-		return $fieldsets[$this->definition];
-	}
-
-	/**
-	 * @param $name
-	 * @throws Model_Exception
-	 * @return string
-	 */
-	protected function label($name) {
-		$label = call_user_func_array(array($this->class, '_labels'), array($name, $this->definition));
-		if(! $label)
-			throw new Model_Exception ('No label found for '.$name);
-		return $label;
-	}
-	/**
-	 * @param $name
-	 * @return array
-	 */
-	protected function rules($name) { return call_user_func_array(array($this->class, '_rules'), array($name, $this->definition)); }
-	/**
-	 * @param $name
-	 * @return array
-	 */
-	protected function attributes($name) { return call_user_func_array(array($this->class, '_attributes'), array($name, $this->definition));
-	}
-
-	/**
-	 * @param $name string
-	 * @return mixed
-	 */
-	protected function static_variable($name) {
-		$class = $this->class;
-		return $class::$name;
-	}
-
-	/**
-	 * Compute the name to use for a field in a fieldset.
-	 *
-	 * @param string $name name of the field
-	 * @return string the name of the field for the fieldset
-	 */
-	protected function field_name($name) {
-		return $this->hierarchy.$this->static_variable('_table_name').'-'.$name;
-	}
-
-	/**
-	 * Add the current table_name to the actual hierarchy and
-	 * return the new value. Must be called each time a processing class
-	 * pass the relay to a child Model.
-	 *
-	 * @return string new hierarchy string to pass a child.
-	 */
-	public function update_hierarchy() {
-		return $this->hierarchy.$this->static_variable('_table_name').'-';
+		return $fieldsets[$this->definition()];
 	}
 
 	/**
@@ -110,8 +42,8 @@ class Fieldset_Parser extends Fieldset_Holder {
 	 * specified definition to the Fieldset instance. Each individual
 	 * field is processed by the _process_field method.
 	 */
-	protected function process_definition() {
-		foreach($this->definition() as $field)
+	protected function parse_definition() {
+		foreach($this->fields() as $field)
 			$this->process_field($field);
 	}
 
@@ -140,7 +72,7 @@ class Fieldset_Parser extends Fieldset_Holder {
 		switch($info[0]) {
 			case 'extend':
 				// add the fields from this other definition (name is second "parameter")
-				Fieldset_Parser::process($this->fieldset(), $info[1], $this->class, $this->hierarchy);
+				Fieldset_Parser::parse($this->fieldset(), $info[1], $this->clazz(), $this->hierarchy());
 				break;
 			case 'special':
 				// add this special field
@@ -155,7 +87,7 @@ class Fieldset_Parser extends Fieldset_Holder {
 			default:
 				// first "parameter" is considered like a model class name, second "parameter" is the
 				// definition name in this other model class.
-				Fieldset_Parser::process($this->fieldset(), $info[1], $info[0], $this->update_hierarchy());
+				Fieldset_Parser::parse($this->fieldset(), $info[1], $info[0], $this->updated_hierarchy());
 				break;
 		}
 	}
@@ -167,8 +99,6 @@ class Fieldset_Parser extends Fieldset_Holder {
 	 * @return void
 	 */
 	protected function add_field($name) {
-		$field = $this->field($this->field_name($name), $this->label($name), $this->rules($name));
-
 		$attributes = $this->attributes($name);
 		switch($attributes['type']) {
 			case 'file':
@@ -187,8 +117,8 @@ class Fieldset_Parser extends Fieldset_Holder {
 					$callback_params = isset($attributes['callback_params']) ? $attributes['callback_params'] : array();
 					unset($attributes['callback']);
 					unset($attributes['callback_params']);
-				} else if(substr($field, - 3) == '_id') {
-					$callback = array('Model_'.ucfirst(substr($field, 0, - 3)), 'find_all');
+				} else if(substr($name, - 3) == '_id') {
+					$callback = array('Model_'.ucfirst(substr($name, 0, - 3)), 'find_all');
 				}
 
 				if(! is_null($callback)) {
@@ -203,6 +133,8 @@ class Fieldset_Parser extends Fieldset_Holder {
 				}
 				break;
 		}
+
+		$field = $this->field($this->field_name($name), $this->label($name), $this->rules($name));
 
 		// Set certain types through specific setter
 		foreach($attributes as $attr => $val)

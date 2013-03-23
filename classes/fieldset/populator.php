@@ -2,7 +2,11 @@
 
 namespace KrtekBase\Fieldset;
 
+use Fuel\Core\DB;
 use Fuel\Core\Fieldset;
+use Fuel\Core\Input;
+use KrtekBase\Krtek_Cache;
+use KrtekBase\Model_Base;
 
 /**
  * Generate fieldsets based on meta-information defined on the
@@ -18,60 +22,106 @@ use Fuel\Core\Fieldset;
  */
 class Fieldset_Populator extends Fieldset_Holder {
 	/**
+	 * Process a fieldset definition and add the fields
+	 * to the given Fieldset.
+	 *
+	 * @param $instance Model_Base
+	 * @param $fieldset Fieldset
+	 * @param $definition string
+	 * @param $class string
+	 * @param $hierarchy string
+	 */
+	public static function populate($instance, $fieldset, $definition, $class, $hierarchy = null, $with_reference = true) {
+		$populator = new Fieldset_Populator($instance, $fieldset, $definition, $class, $hierarchy);
+		$populator->do_populate($with_reference);
+	}
+
+	/** @var $instance Model_Base */
+	private $instance;
+
+	protected function __construct($instance, $fieldset, $definition, $class, $hierarchy) {
+		parent::__construct($fieldset, $definition, $class, $hierarchy);
+		$this->instance = $instance;
+	}
+
+	/**
+	 * @return Model_Base
+	 */
+	protected function instance() { return $this->instance; }
+
+	/**
 	 * Populate known fields of the fieldset with value from this
 	 * model instance.
 	 *
-	 * @param Fieldset $fieldset
 	 * @param bool $with_references Also get references and populate their fields as well
-	 * @param null $hierarchy
 	 * @return Fieldset return the $fieldset to allow chaining
 	 */
-	public function populate($fieldset, $with_references = true, $hierarchy = null) {
-		if(isset($this->{static::primary_key()})) {
-			$name = static::_field_name(static::primary_key(), $hierarchy);
-			$fieldset->add(array('name' => $name, 'value' => $this->{static::primary_key()}, 'type' => 'hidden'));
+	protected function do_populate($with_references) {
+		if($this->instance()->pk()) {
+			// TODO: find a proper way to get the column name for the PK
+			$name = $this->field_name('id');
+			$this->hidden($name, $this->instance()->pk());
 		}
 
-		foreach($this->to_array() as $name => $value) {
-			$field_name = static::_field_name($name, $hierarchy);
-			$field = $fieldset->field($field_name);
+		foreach($this->instance()->to_array() as $name => $value) {
+			$field_name = $this->field_name($name);
+			$field = $this->fieldset()->field($field_name);
 			if($field)
 				$field->set_value(Input::post($field_name, $value), true);
 		}
 
 		if($with_references) {
-			foreach(static::$_reference_one as $class => $fk)
-				if(isset($this->{$fk})) {
-					/** @var $reference Model_Base */
-					$reference = $class::find_by_pk($this->{$fk});
-					if($reference)
-						$reference->populate($fieldset, $with_references, static::update_hierarchy($hierarchy));
-				}
-
-			foreach(static::$_referenced_by as $class => $fk)
-				if(isset($this->{static::primary_key()})) {
-					/** @var $referenced Model_Base|Model_Base[] */
-					$referenced = $class::find_by($fk, $this->{static::primary_key()});
-					if($referenced) {
-						if(is_array($referenced))
-							$referenced = current($referenced);
-					} else
-						$referenced = $class::forge(array($fk => $this->{static::primary_key()}));
-					$referenced->populate($fieldset, false, static::update_hierarchy($hierarchy));
-				}
-
-			foreach(static::$_reference_many as $class => $data)
-				if(isset($this->{static::primary_key()})) {
-					$ids = $class::ids_for_find_many(get_called_class(), $this->{static::primary_key()});
-
-					$field_name = static::_field_name($data['fk'], $hierarchy);
-					$field = $fieldset->field($field_name);
-					if($field)
-						$field->set_value(Input::post($field_name, $ids), true);
-				}
+			$this->populate_reference_one();
+			$this->populate_referenced_by();
+			$this->populate_reference_many();
 		}
 
-		return $fieldset;
+		return $this->fieldset();
 	}
 
+	/**
+	 * Populate fields from referenced model (one)
+	 */
+	protected function populate_reference_one() {
+		foreach($this->static_variable('_reference_one') as $class => $fk)
+			if(isset($this->instance()->{$fk})) {
+				$reference = call_user_func_array(array($class, 'find_by_pk'), array($this->instance()->{$fk}));
+				if($reference)
+					Fieldset_Populator::populate($reference, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy(), false);
+			}
+	}
+
+	/**
+	 * Populate fields from model that reference this one
+	 */
+	protected function populate_referenced_by() {
+		foreach($this->static_variable('_referenced_by') as $class => $fk) {
+			if($this->instance()->pk()) {
+				$referenced = call_user_func_array(array($class, 'find_by'), array($fk, $this->instance()->pk()));
+				if(! $referenced) {
+					// if no referenced found, forge on so it will be saved with the fk set to this instance pk.
+					$referenced = call_user_func_array(array($class, 'forge'), array(array($fk => $this->instance()->pk())));
+				} else if(is_array($referenced)) {
+					$referenced = current($referenced);
+				}
+				Fieldset_Populator::populate($referenced, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy(), false);
+			}
+		}
+	}
+
+	/**
+	 * Populate fields from references models (many)
+	 */
+	protected function populate_reference_many() {
+		foreach($this->static_variable('_reference_many') as $class => $data)
+			if($this->instance()->pk()) {
+				$instances = call_user_func_array(array($class, 'find_many_by'), array($data['lk'], $this->instance()->pk()));
+				$ids = array_map(function(Model_Base $m) { return $m->pk(); }, $instances);
+
+				$field_name = $this->field_name($data['fk']);
+				$field = $this->fieldset()->field($field_name);
+				if($field)
+					$field->set_value(Input::post($field_name, $ids), true);
+				}
+	}
 }
