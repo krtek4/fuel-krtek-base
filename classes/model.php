@@ -927,8 +927,18 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		foreach($this->to_array() as $name => $value) {
 			$field_name = static::_field_name($name, $hierarchy);
 			$field = $fieldset->field($field_name);
-			if($field)
-				$field->set_value(Input::post($field_name, $value), true);
+			if($field) {
+				$value = Input::post($field_name, $value);
+				switch($field->get_attribute('type')) {
+					case 'date':
+						$value = date('Y-m-d', strtotime($value));
+						break;
+					case 'datetime':
+						$value = date('Y-m-d H:m:s', strtotime($value));
+						break;
+				}
+				$field->set_value($value, true);
+			}
 		}
 
 		if($with_references) {
