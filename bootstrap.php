@@ -29,6 +29,7 @@ Fuel\Core\Autoloader::add_classes(array(
 	'KrtekBase\\Fieldset\\Fieldset_Holder' => __DIR__.'/classes/fieldset/holder.php',
 	'KrtekBase\\Fieldset\\Fieldset_Parser' => __DIR__.'/classes/fieldset/parser.php',
 	'KrtekBase\\Fieldset\\Fieldset_Populator' => __DIR__.'/classes/fieldset/populator.php',
+	'KrtekBase\\Fieldset\\Fieldset_Processor' => __DIR__.'/classes/fieldset/processor.php',
 
 	'KrtekBase\\Controller_Crud' => __DIR__.'/classes/controller_crud.php',
 	'KrtekBase\\View_Crud' => __DIR__.'/classes/viewmodel_crud.php',

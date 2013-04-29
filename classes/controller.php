@@ -47,7 +47,7 @@ abstract class Controller_Base extends Controller_Hybrid {
 	 * @return Model_Base|bool result of the fieldset process.
 	 */
 	final protected function process_fieldset() {
-		$this->_fieldset_processed = Model_Base::process_fieldset_input();
+		$this->_fieldset_processed = Model_Base::process_fieldset();
 		if(! $this->_fieldset_processed && Package::loaded('messages'))
 				\Messages\Messages::instance()->message('error', 'Veuillez vérifier les informations fournies.');
 		return $this->fieldset_process_result();

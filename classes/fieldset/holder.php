@@ -8,8 +8,9 @@ use Fuel\Core\FuelException;
 class Fieldset_Exception extends FuelException { }
 
 /**
- * Generate fieldsets based on meta-information setted on the
- * model class
+ * Hold a Fieldset and the various related information (model class,
+ * definition, current hierarchy). Provides various utility methods
+ * to get information on the class name or the fieldset.
  *
  * @package krtek-Base
  * @category BaseClasses

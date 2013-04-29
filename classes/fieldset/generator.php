@@ -3,11 +3,15 @@
 namespace KrtekBase\Fieldset;
 
 use Fuel\Core\Fieldset;
+use Fuel\Core\Input;
 use KrtekBase\Model_Base;
 
 /**
  * Generate fieldsets based on meta-information defined on the
- * model class
+ * model class.
+ *
+ * Also provides various utility methods to access other Fieldset
+ * related classes without having to call them directly.
  *
  * @package krtek-Base
  * @category BaseClasses
@@ -43,13 +47,33 @@ class Fieldset_Generator extends Fieldset_Holder {
 		return static::$instances[$name];
 	}
 
+	/**
+	 * Return a fieldset generator based on data present in the Input.
+	 *
+	 * @param array $config
+	 * @return Fieldset_Generator
+	 * @throws Fieldset_Exception
+	 */
+	public static function from_fields(array $config = array()) {
+		$definition = Input::post('_fieldset_name', null);
+		$class = Input::post('_fieldset_model', null);
+
+		if(is_null($definition) || is_null($class)) {
+			throw new Fieldset_Exception("Unable to gather sufficient data from input.");
+		}
+
+		return static::forge($definition, $class, $config);
+	}
+
 	private $parsed = false;
 
 	protected function __construct($name, $definition, $class, array $config) {
 		parent::__construct(Fieldset::forge($name, $config), $definition, $class, '');
 	}
 
-
+	/**
+	 * Generate the Fieldset using the Fieldset_Parser
+	 */
 	public function parse() {
 		$this->parsed = true;
 
@@ -59,9 +83,25 @@ class Fieldset_Generator extends Fieldset_Holder {
 		Fieldset_Parser::parse($this->fieldset(), $this->definition(), $this->clazz());
 	}
 
+	/**
+	 * Process (ie retrieve information in the input and save it) the fieldset using
+	 * Fieldset_Processor
+	 *
+	 * @return Model_Base|bool The created / updated model or false if an error occurred
+	 */
 	public function process() {
+		if(! $this->parsed)
+			$this->parse();
+
+		return Fieldset_Processor::process($this->fieldset(), $this->definition(), $this->clazz());
 	}
 
+	/**
+	 * Populate the fieldset using Fieldset_Populator
+	 *
+	 * @param Model_Base $instance
+	 * @param bool $with_reference
+	 */
 	public function populate(Model_Base $instance, $with_reference = true) {
 		if(! $this->parsed)
 			$this->parse();

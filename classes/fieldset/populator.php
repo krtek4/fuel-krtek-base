@@ -10,8 +10,13 @@ use KrtekBase\Krtek_Cache;
 use KrtekBase\Model_Base;
 
 /**
- * Generate fieldsets based on meta-information defined on the
- * model class
+ * This class is responsible for the population of the various
+ * fields present on a Fieldset.
+ *
+ * The population is made respecting the following priorities :
+ *
+ * 1° Input data
+ * 2° Actual value of the instance
  *
  * @package krtek-Base
  * @category BaseClasses
@@ -23,14 +28,15 @@ use KrtekBase\Model_Base;
  */
 class Fieldset_Populator extends Fieldset_Holder {
 	/**
-	 * Process a fieldset definition and add the fields
-	 * to the given Fieldset.
+	 * Populate the given fieldset with values from the Input data
+	 * and the instance
 	 *
 	 * @param $instance Model_Base
 	 * @param $fieldset Fieldset
 	 * @param $definition string
 	 * @param $class string
 	 * @param $hierarchy string
+	 * @param bool $with_reference
 	 */
 	public static function populate($instance, $fieldset, $definition, $class, $hierarchy = null, $with_reference = true) {
 		$populator = new Fieldset_Populator($instance, $fieldset, $definition, $class, $hierarchy);
@@ -75,8 +81,7 @@ class Fieldset_Populator extends Fieldset_Holder {
 	 */
 	protected function do_populate($with_references) {
 		if($this->instance()->pk()) {
-			// TODO: find a proper way to get the column name for the PK
-			$name = $this->field_name('id');
+			$name = $this->field_name($this->instance()->primary_column());
 			$this->hidden($name, $this->instance()->pk());
 		}
 

@@ -3,6 +3,7 @@
 namespace KrtekBase\Fieldset;
 
 use Fuel\Core\Fieldset;
+use KrtekBase\Model_Base;
 
 /**
  * Generate fieldsets based on meta-information defined on the
@@ -17,6 +18,31 @@ use Fuel\Core\Fieldset;
  * @link https://github.com/krtek4/fuel-krtek-base
  */
 class Fieldset_Processor extends Fieldset_Holder {
+	/**
+	 * Process a fieldset definition and set the value provided
+	 * in the input to an instance of the related model object
+	 *
+	 * @param $fieldset Fieldset
+	 * @param $definition string
+	 * @param $class string
+	 * @param $hierarchy string
+	 * @return Model_Base|bool The created / updated model or false if an error occurred
+	 */
+	public static function process($fieldset, $definition, $class, $hierarchy = null) {
+		$parser = new Fieldset_Processor($fieldset, $definition, $class, $hierarchy);
+		return $parser->process_fieldset();
+	}
+
+	/**
+	 * Process a fieldset definition and set the value provided
+	 * in the input to an instance of the related model object
+	 *
+	 * @throws \RuntimeException
+	 * @return Model_Base|bool The created / updated model or false if an error occurred
+	 */
+	protected function process_fieldset() {
+		throw new \RuntimeException("Do something meaningful here !");
+	}
 
 	/**
 	 * Process data found in the post input array to create or update
@@ -31,7 +57,7 @@ class Fieldset_Processor extends Fieldset_Holder {
 	 * @throws Fieldset_Exception
 	 * @return Model_Base|bool The created / updated model or false if an error occurred
 	 */
-	public static function process_fieldset_input(array $data = array(), $hierarchy = null) {
+	protected function process_fieldset_input(array $data = array(), $hierarchy = null) {
 		if(! Input::method('POST') && empty($data))
 			return false;
 
@@ -131,7 +157,7 @@ class Fieldset_Processor extends Fieldset_Holder {
 	 * @param $hierarchy
 	 * @return void
 	 */
-	private static function _process_fieldset_input($model, $definition, array &$fields, array $data, $hierarchy) {
+	protected function _process_fieldset_input($model, $definition, array &$fields, array $data, $hierarchy) {
 		if(! isset($fields[$model]))
 			$fields[$model] = array();
 
@@ -180,6 +206,175 @@ class Fieldset_Processor extends Fieldset_Holder {
 	}
 
 
+	/**
+	 * Save the references to other models specified in $_reference_many
+	 *
+	 * @param array $references
+	 * @return boolean
+	 */
+	private function _save_reference_many(array $references) {
+		$sql = '';
+		foreach(static::$_reference_many as $model => $data) {
+			if(! isset($references[$model]) || ! is_array($references[$model]))
+				continue;
 
+			$values = array();
+			foreach($references[$model] as $id)
+				$values[] = '('.$this->pk().', '.$id.') ';
 
+			$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$this->pk().'; ';
+			$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
+		}
+
+		if(! empty($sql))
+			return DB::query($sql)->execute();
+		else
+			return true;
+	}
+
+	/**
+	 * Save the various references of the model and then assign the ids to the foreign key column.
+	 *
+	 * @param bool $validate do we have to validate
+	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
+	 * @return array|int|bool
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	private function _save_reference_one($validate, array &$instances) {
+		$result = 0;
+
+		foreach(static::$_reference_one as $class => $fk) {
+			if(! isset($instances[$class]))
+				continue;
+
+			if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
+				return false;
+
+			$this->{$fk} = $instances[$class]->{$class::primary_key()};
+			$result = self::_combine_save_results($result, $r_temp);
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Save the various references of the model and then assign the ids to the foreign key column.
+	 *
+	 * @param bool $validate do we have to validate
+	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
+	 * @return array|int|bool
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	private function _save_reference_by($validate, array &$instances) {
+		$result = 0;
+
+		if(! isset(static::$_referenced_by))
+			return $result;
+
+		foreach(static::$_referenced_by as $class => $fk) {
+			if(! isset($instances[$class]))
+				continue;
+
+			$instances[$class]->{$fk} = $this->{$this->primary_key()};
+			if(($r_temp = $instances[$class]->_do_save($validate, $instances, false)) === false)
+				return false;
+
+			$result = self::_combine_save_results($result, $r_temp);
+		}
+		return $result;
+	}
+
+	/**
+	 * Does the actual saving job (_reference_one and current model).
+	 *
+	 * @param bool $validate  whether to validate the input
+	 * @param Model_Base[] $instances Array of instances of various _reference_one model with the form 'Model_Name' => instance
+	 * @param bool $with_reference_one
+	 * @return array|int|bool
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	private function _do_save($validate, array &$instances, $with_reference_one = true) {
+		if($with_reference_one) {
+			$result = $this->_save_reference_one($validate, $instances);
+			if($result === false)
+				return false;
+		} else
+			$result = 0;
+
+		$result_tmp = parent::save($validate);
+		if($result_tmp === false)
+			return false;
+		$result = self::_combine_save_results($result, $result_tmp);
+
+		// TODO: find how to have references filled !
+		$status_tmp = $this->_save_reference_many($references);
+		$result = self::_combine_save_results($result, $status_tmp);
+
+		$result_tmp = $this->_save_reference_by($validate, $instances);
+		return self::_combine_save_results($result, $result_tmp);
+	}
+
+	/**
+	 * Combine the results of two various save().
+	 *
+	 * If at least one of the parameter is an array, the result will be an array,
+	 * otherwise we only return the number of affected rows. In case of an INSERT
+	 * the returned id will be the one from the primary result if it exists,
+	 * otherwise the secondary one.
+	 *
+	 * @param array|int $one Primary result
+	 * @param array|int $two Secondary result
+	 * @return array|int|bool
+	 *        false if one of the value is false
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	private static function _combine_save_results($one, $two) {
+		if($one === false || $two === false)
+			return false;
+		elseif(is_array($one) && is_array($two)) // both are an array
+			return array($one[0], $one[1] + $two[1]); elseif(! is_array($two)) // only $one is an array
+			return array($one[0], $one[1] + $two); elseif(! is_array($one)) // only $two is an array
+			return array($two[0], $one + $two[1]); else
+			return $one + $two;
+	}
+
+	/**
+	 * Wraps the saving process in transaction if asked, the actual job is done by _do_save().
+	 * The references defined in the $_reference_one static variable are also saved.
+	 *
+	 * @param bool $validate  whether to validate the input
+	 * @param Model_Base[] $instances Array of instances of various referenced models with the form 'Model_Name' => instance
+	 * @param bool $transaction Do we use transaction ?
+	 * @throws \Exception
+	 * @return array|int|bool
+	 *        false if the validation failed
+	 *        On UPDATE : number of affected rows
+	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 */
+	public function save($validate = true, array &$instances = array(), $transaction = true) {
+		// disable transaction mode if we are already in one
+		$transaction = $transaction && ! Database_Connection::instance(null)->in_transaction();
+
+		if($transaction)
+			DB::start_transaction();
+
+		try {
+			$status = self::_do_save($validate, $instances);
+		} catch(\Exception $e) {
+			Log::error('['.get_called_class().'] Rollback transaction');
+			DB::rollback_transaction();
+			throw $e;
+		}
+
+		if($transaction)
+			DB::commit_transaction();
+		return $status;
+	}
 }

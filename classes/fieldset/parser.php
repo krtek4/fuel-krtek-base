@@ -5,9 +5,21 @@ namespace KrtekBase\Fieldset;
 use Fuel\Core\Fieldset;
 use KrtekBase\Model_Base;
 
+/**
+ * Parse a fieldset definition on a model class and add the various fields
+ * to the Fieldset
+ *
+ * @package krtek-Base
+ * @category BaseClasses
+ * @author Gilles Meier <krtek4@gmail.com>
+ * @version 1.0
+ * @license Affero GPLv3 http://www.gnu.org/licenses/agpl-3.0-standalone.html
+ * @copyright 2012 Gilles Meier <krtek4@gmail.com>
+ * @link https://github.com/krtek4/fuel-krtek-base
+ */
 class Fieldset_Parser extends Fieldset_Holder {
 	/**
-	 * Process a fieldset definition and add the fields
+	 * Parse a fieldset definition and add the fields
 	 * to the given Fieldset.
 	 *
 	 * @param $fieldset Fieldset
