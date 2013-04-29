@@ -4,6 +4,7 @@ namespace KrtekBase\Fieldset;
 
 use Fuel\Core\DB;
 use Fuel\Core\Fieldset;
+use Fuel\Core\Fieldset_Field;
 use Fuel\Core\Input;
 use KrtekBase\Krtek_Cache;
 use KrtekBase\Model_Base;
@@ -50,6 +51,22 @@ class Fieldset_Populator extends Fieldset_Holder {
 	protected function instance() { return $this->instance; }
 
 	/**
+	 * @param Fieldset_Field $field
+	 * @param $value
+	 */
+	protected function set_value(Fieldset_Field $field, $value) {
+		switch($field->get_attribute('type')) {
+			case 'date':
+				$value = date('Y-m-d', strtotime($value));
+				break;
+			case 'datetime':
+				$value = date('Y-m-d H:m:s', strtotime($value));
+				break;
+		}
+		$field->set_value($value, true);
+	}
+
+	/**
 	 * Populate known fields of the fieldset with value from this
 	 * model instance.
 	 *
@@ -67,7 +84,7 @@ class Fieldset_Populator extends Fieldset_Holder {
 			$field_name = $this->field_name($name);
 			$field = $this->fieldset()->field($field_name);
 			if($field)
-				$field->set_value(Input::post($field_name, $value), true);
+				$this->set_value($field, Input::post($field_name, $value));
 		}
 
 		if($with_references) {
@@ -121,7 +138,7 @@ class Fieldset_Populator extends Fieldset_Holder {
 				$field_name = $this->field_name($data['fk']);
 				$field = $this->fieldset()->field($field_name);
 				if($field)
-					$field->set_value(Input::post($field_name, $ids), true);
+					$this->set_value($field, Input::post($field_name, $ids));
 				}
 	}
 }

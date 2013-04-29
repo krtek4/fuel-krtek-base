@@ -122,17 +122,6 @@ abstract class Model_Base extends Model_Crud {
 	}
 
 	/**
-	 * Specify the table for the column to avoid problems when joining.
-	 *
-	 * @param   mixed  $value  The primary key value to find
-	 * @param   bool $refresh bypass the cache ?
-	 * @return  null|Model_Base  Either null or a new Model object
-	 */
-	public static function find_by_pk($value, $refresh = false) {
-		return static::find_one_by(static::primary_key(), $value);
-	}
-
-	/**
 	 * Specify the table for the column to avoid problems when joining. If a table
 	 * is already specified, nothing's done.
 	 *
@@ -164,6 +153,8 @@ abstract class Model_Base extends Model_Crud {
 		$info = static::$_reference_many['Model_'.ucfirst(substr($column, 0, - 3))];
 		$data = Krtek_Cache::results_cache_get($info['table'], $info['fk'], $id);
 		if(is_null($data)) {
+			$data = array();
+		} else if($data === false) {
 			$sql = 'SELECT * FROM '.$info['table'];
 			$result = DB::query($sql)->execute()->as_array();
 
@@ -514,6 +505,14 @@ abstract class Model_Base extends Model_Crud {
 		if(isset($this->{static::primary_key()}))
 			return $this->{static::primary_key()};
 		return false;
+	}
+
+	/**
+	 * Non static version of primery_key()
+	 * @return string the column used as primary key
+	 */
+	public function primary_column() {
+		return static::primary_key();
 	}
 
 	/**
