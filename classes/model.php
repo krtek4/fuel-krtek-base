@@ -332,6 +332,14 @@ abstract class Model_Base extends Model_Crud {
 	}
 
 	/**
+	 * Public version of the primary_key method on Model_Crud
+	 * @return string the column used as primary key
+	 */
+	public static function primary_key() {
+		return parent::primary_key();
+	}
+
+	/**
 	 * Non static version of primary_key()
 	 * @return string the column used as primary key
 	 */
@@ -437,12 +445,13 @@ abstract class Model_Base extends Model_Crud {
 	 * If the method is called trough Model_Base, the _fieldset_model instance will
 	 * be returned.
 	 *
+	 * @param array $data default data to use if nothings found in the input or the object
 	 * @param array $config
 	 * @return Model_Base|bool The created / updated model or false if an error occurred
 	 */
-	public static function process_fieldset(array $config = array()) {
+	public static function process_fieldset($data = array(), array $config = array()) {
 		$generator = Fieldset_Generator::from_fields($config);
-		return $generator->process();
+		return $generator->process($data);
 	}
 
 	/**

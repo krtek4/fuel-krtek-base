@@ -33,23 +33,6 @@ class Fieldset_Parser extends Fieldset_Holder {
 	}
 
 	/**
-	 * Return the fieldset definition or throw exception if not found or invalid.
-	 *
-	 * @throws Fieldset_Exception when fieldset not found or invalid
-	 * @return array fieldset definition
-	 */
-	protected function fields() {
-		$fieldsets = $this->static_variable('_fieldsets');
-		if(! array_key_exists($this->definition(), $fieldsets))
-			throw new Fieldset_Exception("Unknown fieldset name : ".$this->clazz().'->'.$this->definition());
-
-		if(! is_array($fieldsets[$this->definition()]))
-			throw new Fieldset_Exception("Invalid fieldset definition : ".$this->clazz().'->'.$this->definition());
-
-		return $fieldsets[$this->definition()];
-	}
-
-	/**
 	 * Process a fieldset definition by adding each found field in the
 	 * specified definition to the Fieldset instance. Each individual
 	 * field is processed by the _process_field method.

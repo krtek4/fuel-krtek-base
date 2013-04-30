@@ -68,6 +68,30 @@ class Fieldset_Holder {
 	}
 
 	/**
+	 * Return the fieldset definition or throw exception if not found or invalid.
+	 *
+	 * @throws Fieldset_Exception when fieldset not found or invalid
+	 * @return array fieldset definition
+	 */
+	protected function fields() {
+		$fieldsets = $this->static_variable('_fieldsets');
+		if(! array_key_exists($this->definition(), $fieldsets))
+			throw new Fieldset_Exception("Unknown fieldset name : ".$this->clazz().'->'.$this->definition());
+
+		if(! is_array($fieldsets[$this->definition()]))
+			throw new Fieldset_Exception("Invalid fieldset definition : ".$this->clazz().'->'.$this->definition());
+
+		return $fieldsets[$this->definition()];
+	}
+
+	/**
+	 * @return string
+	 */
+	protected function model_pk() {
+		return call_user_func(array($this->clazz(), 'primary_key'));
+	}
+
+	/**
 	 * Compute the name to use for a field in a fieldset.
 	 *
 	 * @param string $name name of the field

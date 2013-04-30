@@ -75,6 +75,9 @@ class Fieldset_Generator extends Fieldset_Holder {
 	 * Generate the Fieldset using the Fieldset_Parser
 	 */
 	public function parse() {
+		if($this->parsed)
+			return;
+
 		$this->parsed = true;
 
 		$this->hidden('_fieldset_name', $this->definition());
@@ -87,13 +90,14 @@ class Fieldset_Generator extends Fieldset_Holder {
 	 * Process (ie retrieve information in the input and save it) the fieldset using
 	 * Fieldset_Processor
 	 *
+	 * @param array $data default data to use if nothings found in the input or the object
 	 * @return Model_Base|bool The created / updated model or false if an error occurred
 	 */
-	public function process() {
+	public function process($data = array()) {
 		if(! $this->parsed)
 			$this->parse();
 
-		return Fieldset_Processor::process($this->fieldset(), $this->definition(), $this->clazz());
+		return Fieldset_Processor::process($this->fieldset(), $this->definition(), $this->clazz(), null, $data);
 	}
 
 	/**
