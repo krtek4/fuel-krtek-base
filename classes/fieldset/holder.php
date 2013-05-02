@@ -166,6 +166,10 @@ class Fieldset_Holder {
 	 * @return \Fuel\Core\Fieldset_Field
 	 */
 	protected function field($name, $label, $rules) {
-		return $this->fieldset()->validation()->add_field($name, $label, $rules);
+		if(empty($rules)) {
+			return $this->fieldset()->add($name, $label);
+		} else {
+			return $this->fieldset()->validation()->add_field($name, $label, $rules);
+		}
 	}
 }

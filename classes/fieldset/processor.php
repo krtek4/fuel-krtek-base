@@ -156,10 +156,10 @@ class Fieldset_Processor extends Fieldset_Holder {
 			$info = explode(':', $field, 2);
 			if(count($info) == 1) {
 				$this->save_field_value($field);
-				return;
+				continue;
 			}
 
-			$references = $this->static_variable('_references_many');
+			$references = $this->static_variable('_reference_many');
 			switch($info[0]) {
 				case 'extend':
 					// add the fields from this other definition (name is second "parameter")
@@ -183,9 +183,9 @@ class Fieldset_Processor extends Fieldset_Holder {
 
 	private function extract_references() {
 		$return = array();
+		$references = call_user_func_array(array($this->clazz(), 'get_meta'), array('_reference_many'));
 		foreach($this->get_classes() as $class) {
 			// only consider class that are a many to many reference
-			$references = call_user_func_array(array($class, 'get_meta'), array('_reference_many'));
 			if(! isset($references[$class]))
 				continue;
 
@@ -202,12 +202,13 @@ class Fieldset_Processor extends Fieldset_Holder {
 		foreach($this->get_classes() as $class) {
 			$instances[$class] = null;
 			$values = $this->get_values($class);
+			$pk = call_user_func(array($class, 'primary_key'));
 
-			if(empty($values[$this->model_pk()])) { // no id -> creation
-				unset($values[$this->model_pk()]);
-				$instances[$class] = call_user_func_array(array($this->clazz(), 'forge'), array($values));
+			if(empty($values[$pk])) { // no id -> creation
+				unset($values[$pk]);
+				$instances[$class] = call_user_func_array(array($class, 'forge'), array($values));
 			} else { // or update
-				$instances[$class] = call_user_func_array(array($this->clazz(), 'find_by_pk'), array($values[$this->model_pk()]));
+				$instances[$class] = call_user_func_array(array($class, 'find_by_pk'), array($values[$pk]));
 				$instances[$class]->from_array($values);
 			}
 			if(is_null($instances[$class]) || ! $instances[$class]) {
@@ -265,144 +266,58 @@ class Fieldset_Processor extends Fieldset_Holder {
 		return $value;
 	}
 
-
 	/**
-	 * Save the references to other models specified in $_reference_many
-	 *
-	 * @param array $references
-	 * @return boolean
+	 * @param string $current_class current class
+	 * @param Model_Base[] $instances all instances remaining to save
+	 * @param array $references many to many references
+	 * @throws Fieldset_Exception
+	 * @return Model_Base
 	 */
-	private function _save_reference_many(array $references) {
+	private function do_save($current_class, array &$instances, array &$references) {
+		$current = $instances[$current_class];
+		unset($instances[$current_class]);
+
+		// reference one
+		$ref = call_user_func_array(array($current, 'get_meta'), array('_reference_one'));
+		foreach($ref as $class => $fk) {
+			if(! isset($instances[$class]))
+				continue;
+
+			$saved = $this->do_save($class, $instances, $references);
+			$current->{$fk} = $saved->pk();
+		}
+
+		// current
+		$current->save();
+
+		// referenced by
+		$ref = call_user_func_array(array($current, 'get_meta'), array('_referenced_by'));
+		foreach($ref as $class => $fk) {
+			if(! isset($instances[$class]))
+				continue;
+
+			$instances[$class]->{$fk} = $current->pk();
+			$this->do_save($class, $instances, $references);
+		}
+
+		// many to many
 		$sql = '';
-		foreach(static::$_reference_many as $model => $this->data) {
-			if(! isset($references[$model]) || ! is_array($references[$model]))
+		$ref = call_user_func_array(array($current, 'get_meta'), array('_reference_many'));
+		foreach($ref as $model => $data) {
+			if(! isset($references[$model]))
 				continue;
 
 			$values = array();
 			foreach($references[$model] as $id)
-				$values[] = '('.$this->pk().', '.$id.') ';
+				$values[] = '('.$current->pk().' , '.$id.')';
 
-			$sql .= 'DELETE FROM '.$this->data['table'].' WHERE '.$this->data['lk'].' = '.$this->pk().'; ';
-			$sql .= 'INSERT INTO '.$this->data['table'].' ('.$this->data['lk'].', '.$this->data['fk'].') VALUES '.implode(', ', $values).'; ';
+			$sql .= 'DELETE FROM '.$data['table'].' WHERE '.$data['lk'].' = '.$current->pk().'; ';
+			$sql .= 'INSERT INTO '.$data['table'].' ('.$data['lk'].', '.$data['fk'].') VALUES '.implode(', ', $values).'; ';
 		}
-
 		if(! empty($sql))
-			return DB::query($sql)->execute();
-		else
-			return true;
-	}
+			DB::query($sql)->execute();
 
-	/**
-	 * Save the various references of the model and then assign the ids to the foreign key column.
-	 *
-	 * @param bool $validate do we have to validate
-	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
-	 * @return array|int|bool
-	 *        false if the validation failed
-	 *        On UPDATE : number of affected rows
-	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
-	 */
-	private function _save_reference_one($validate, array &$instances) {
-		$result = 0;
-
-		foreach(static::$_reference_one as $class => $fk) {
-			if(! isset($instances[$class]))
-				continue;
-
-			if(($r_temp = $instances[$class]->_do_save($validate, $instances)) === false)
-				return false;
-
-			$this->{$fk} = $instances[$class]->{$class::primary_key()};
-			$result = self::_combine_save_results($result, $r_temp);
-		}
-
-		return $result;
-	}
-
-	/**
-	 * Save the various references of the model and then assign the ids to the foreign key column.
-	 *
-	 * @param bool $validate do we have to validate
-	 * @param Model_Base[] $instances Array of instances of various references model with the form 'Model_Name' => instance
-	 * @return array|int|bool
-	 *        false if the validation failed
-	 *        On UPDATE : number of affected rows
-	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
-	 */
-	private function _save_reference_by($validate, array &$instances) {
-		$result = 0;
-
-		if(! isset(static::$_referenced_by))
-			return $result;
-
-		foreach(static::$_referenced_by as $class => $fk) {
-			if(! isset($instances[$class]))
-				continue;
-
-			$instances[$class]->{$fk} = $this->{$this->primary_key()};
-			if(($r_temp = $instances[$class]->_do_save($validate, $instances, false)) === false)
-				return false;
-
-			$result = self::_combine_save_results($result, $r_temp);
-		}
-		return $result;
-	}
-
-	/**
-	 * Does the actual saving job (_reference_one and current model).
-	 *
-	 * @param bool $validate  whether to validate the input
-	 * @param Model_Base[] $instances Array of instances of various _reference_one model with the form 'Model_Name' => instance
-	 * @param bool $with_reference_one
-	 * @return array|int|bool
-	 *        false if the validation failed
-	 *        On UPDATE : number of affected rows
-	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
-	 */
-	private function _do_save($validate, array &$instances, $with_reference_one = true) {
-		if($with_reference_one) {
-			$result = $this->_save_reference_one($validate, $instances);
-			if($result === false)
-				return false;
-		} else
-			$result = 0;
-
-		$result_tmp = parent::save($validate);
-		if($result_tmp === false)
-			return false;
-		$result = self::_combine_save_results($result, $result_tmp);
-
-		// TODO: find how to have references filled !
-		$status_tmp = $this->_save_reference_many($references);
-		$result = self::_combine_save_results($result, $status_tmp);
-
-		$result_tmp = $this->_save_reference_by($validate, $instances);
-		return self::_combine_save_results($result, $result_tmp);
-	}
-
-	/**
-	 * Combine the results of two various save().
-	 *
-	 * If at least one of the parameter is an array, the result will be an array,
-	 * otherwise we only return the number of affected rows. In case of an INSERT
-	 * the returned id will be the one from the primary result if it exists,
-	 * otherwise the secondary one.
-	 *
-	 * @param array|int $one Primary result
-	 * @param array|int $two Secondary result
-	 * @return array|int|bool
-	 *        false if one of the value is false
-	 *        On UPDATE : number of affected rows
-	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
-	 */
-	private static function _combine_save_results($one, $two) {
-		if($one === false || $two === false)
-			return false;
-		elseif(is_array($one) && is_array($two)) // both are an array
-			return array($one[0], $one[1] + $two[1]); elseif(! is_array($two)) // only $one is an array
-			return array($one[0], $one[1] + $two); elseif(! is_array($one)) // only $two is an array
-			return array($two[0], $one + $two[1]); else
-			return $one + $two;
+		return $current;
 	}
 
 	/**
@@ -410,30 +325,24 @@ class Fieldset_Processor extends Fieldset_Holder {
 	 *
 	 * @param Model_Base[] $instances Array of instances of various referenced models with the form 'Model_Name' => instance
 	 * @param array $references list of ids for the many to many references
+	 * @throws Fieldset_Exception
 	 * @throws \Exception
-	 * @return array|int|bool
-	 *        false if the validation failed
-	 *        On UPDATE : number of affected rows
-	 *        On INSERT : array(0 => autoincrement id, 1 => number of affected rows)
+	 * @return bool
 	 */
 	public function save(array $instances, array $references) {
-		// disable transaction mode if we are already in one
-		$transaction = ! Database_Connection::instance(null)->in_transaction();
+		if(! isset($instances[$this->clazz()]))
+			throw new Fieldset_Exception("Unable to find instance for current class : ".$this->clazz().".");
 
-		if($transaction)
-			DB::start_transaction();
-
+		DB::start_transaction();
 		try {
-			throw new \RuntimeException('Implement this !');
-			$status = self::_do_save($validate, $instances);
+			$this->do_save($this->clazz(), $instances, $references);
 		} catch(\Exception $e) {
 			Log::error('['.get_called_class().'] Rollback transaction');
 			DB::rollback_transaction();
 			throw $e;
 		}
+		DB::commit_transaction();
 
-		if($transaction)
-			DB::commit_transaction();
-		return $status;
+		return true;
 	}
 }
