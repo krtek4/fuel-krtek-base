@@ -2,7 +2,7 @@
 
 namespace KrtekBase;
 
-use Fuel\Core\Controller_Template;
+use Fuel\Core\Controller_Hybrid;
 use Fuel\Core\Input;
 use Fuel\Core\Package;
 
@@ -17,7 +17,7 @@ use Fuel\Core\Package;
  * @copyright 2012 Gilles Meier <krtek4@gmail.com>
  * @link https://github.com/krtek4/fuel-krtek-base
  */
-abstract class Controller_Base extends Controller_Template {
+abstract class Controller_Base extends Controller_Hybrid {
 	/**
 	 * @var bool if null no fieldset were processed, otherwise the result of the process.
 	 */
@@ -93,6 +93,10 @@ abstract class Controller_Base extends Controller_Template {
 	 */
 	final protected function is_templated() {
 		return ! ($this->is_ajax() || $this->is_hmvc());
+	}
+
+	public function is_restful() {
+		return $this->is_ajax();
 	}
 
 	/**

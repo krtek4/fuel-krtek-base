@@ -20,7 +20,7 @@ Fuel\Core\Autoloader::add_classes(array(
 	'KrtekBase\\DBUtil' => __DIR__.'/classes/dbutil.php',
 	'KrtekBase\\Migration' => __DIR__.'/classes/migration.php',
 	'KrtekBase\\Model_Base' => __DIR__.'/classes/model.php',
-	'KrtekBase\\Cache' => __DIR__.'/classes/cache.php',
+	'KrtekBase\\Krtek_Cache' => __DIR__.'/classes/cache.php',
 	'KrtekBase\\Controller_Base' => __DIR__.'/classes/controller.php',
 	'KrtekBase\\ViewModel_Base' => __DIR__.'/classes/viewmodel.php',
 	'KrtekBase\\Acl' => __DIR__.'/classes/acl.php',

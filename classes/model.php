@@ -119,30 +119,19 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	}
 
 	/**
-	 * Specify the table for the column to avoid problems when joining.
-	 *
-	 * @param   mixed  $value  The primary key value to find
-	 * @param   bool $refresh bypass the cache ?
-	 * @return  null|Model_Base  Either null or a new Model object
-	 */
-	public static function find_by_pk($value, $refresh = false)
-	{
-		if(Cache::has($value) && ! $refresh)
-			return Cache::get($value);
-
-		return static::find_one_by(static::$_table_name.'.'.static::primary_key(), $value);
-	}
-
-	/**
 	 * Specify the table for the column to avoid problems when joining. If a table
 	 * is already specified, nothing's done.
 	 *
 	 * @param   mixed  $column  The column to search
 	 * @param   mixed  $value   The value to find
 	 * @param   string $operator The operator to use for the comparison
+	 * @param   bool $refresh bypass the cache ?
 	 * @return  null|Model_Base  Either null or a new Model object
 	 */
-	public static function find_one_by($column, $value = null, $operator = '=') {
+	public static function find_one_by($column, $value = null, $operator = '=', $refresh = false) {
+		if(Krtek_Cache::has($value, $column) && ! $refresh)
+			return Krtek_Cache::get($value, get_called_class(), $column);
+
 		if(strpos($column, '.') === false)
 			$column = static::$_table_name.'.'.$column;
 
@@ -158,16 +147,24 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return array id to retrieve from the database
 	 */
 	protected static function ids_for_find_many($model, $id) {
-		$data = static::$_reference_many[$model];
+		$info = static::$_reference_many[$model];
+		$data = Krtek_Cache::results_cache_get($info['table'], $info['fk'], $id);
+		if(is_null($data)) {
+			$data = array();
+		} else if($data === false) {
+			$sql = 'SELECT * FROM '.$info['table'];
+			$result = \Fuel\Core\DB::query($sql)->execute()->as_array();
 
-		$sql = 'SELECT '.$data['lk'].' FROM '.$data['table'].' WHERE '.$data['fk'].' = '.$id;
-		$result = DB::query($sql)->execute()->as_array();
-
-		$ids = array();
-		foreach($result as $r) {
-			$ids[] = $r[$data['lk']];
+			$data = array();
+			foreach($result as $r) {
+				if(! isset($data[$r[$info['fk']]]))
+					$data[$r[$info['fk']]] = array();
+				$data[$r[$info['fk']]][] = $r[$info['lk']];
+			}
+			Krtek_Cache::results_cache_save($info['table'], $info['fk'], $data);
+			$data = isset($data[$id]) ? $data[$id] : array();
 		}
-		return $ids;
+		return $data;
 	}
 
 	/**
@@ -345,8 +342,11 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			$attributes['options'] = array();
 			$rows = call_user_func_array($callback, $callback_params);
 			if($rows)
-				foreach($rows as $row)
-					$attributes['options'][$row['id']] = $row->select_name();
+				foreach($rows as $k => $row)
+					if(is_object($row))
+						$attributes['options'][$row['id']] = $row->select_name();
+					else
+						$attributes['options'][$k] = $row;
 		}
 
 		// Set certain types through specific setter
@@ -372,6 +372,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		$attributes = static::_attributes($field, $definition_name);
 		switch($field) {
 			case 'cancel':
+				$attributes['class'] = isset($attributes['class']) ? $attributes['class'] : '';
 				$attributes['class'] .= ' cancel';
 				$attributes['type'] = 'reset';
 				$attributes['value'] = $label;
@@ -801,14 +802,14 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	 * @return Database_Result unchanged database result
 	 */
 	protected function post_save($result) {
-		$uuid = DB::query('SELECT @last_uuid as id')->execute();
+		$uuid = DB::query('SELECT @last_uuid AS id')->execute();
 		$this->{static::primary_key()} = $uuid[0]['id'];
-		Cache::save($this->{static::primary_key()}, $this);
+		Krtek_Cache::save($this->{static::primary_key()}, $this);
 		return $result;
 	}
 
 	protected function post_update($result) {
-		Cache::save($this->{static::primary_key()}, $this);
+		Krtek_Cache::save($this->{static::primary_key()}, $this);
 		return $result;
 	}
 
@@ -820,7 +821,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 	protected static function post_find($result) {
 		if(is_array($result))
 			foreach($result as $r)
-				Cache::save($r->{static::primary_key()}, $r);
+				Krtek_Cache::save($r->{static::primary_key()}, $r);
 		return $result;
 	}
 
@@ -883,6 +884,8 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			case 0:
 				throw new Model_Exception('No relation found for this name : '.$name.' '.$model_name);
 			case 1:
+				if(! isset($this->{$field}))
+					throw new Model_Exception('The needed field was not found : '.$field.' on '.get_called_class());
 				$id = $this->{$field};
 				return call_user_func_array($model_name.'::'.$method, array($id));
 			default:
@@ -924,8 +927,18 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		foreach($this->to_array() as $name => $value) {
 			$field_name = static::_field_name($name, $hierarchy);
 			$field = $fieldset->field($field_name);
-			if($field)
-				$field->set_value(Input::post($field_name, $value), true);
+			if($field) {
+				$value = Input::post($field_name, $value);
+				switch($field->get_attribute('type')) {
+					case 'date':
+						$value = date('Y-m-d', strtotime($value));
+						break;
+					case 'datetime':
+						$value = date('Y-m-d H:m:s', strtotime($value));
+						break;
+				}
+				$field->set_value($value, true);
+			}
 		}
 
 		if($with_references) {

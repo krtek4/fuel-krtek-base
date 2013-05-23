@@ -57,7 +57,7 @@ abstract class Controller_Crud extends Controller_Base {
 		if(is_null(static::$_model))
 			static::$_model = 'Model_'.  ucfirst(static::$_friendly_name);
 
-		Cache::preload(static::$_preload);
+		Krtek_Cache::preload(static::$_preload);
 	}
 
 	/**
@@ -177,7 +177,7 @@ abstract class Controller_Crud extends Controller_Base {
 			$vm = ViewModel::forge('Crud', $action);
 		}
 		if(! is_null($instance)) {
-			$vm->set(self::_var_name($plural), $instance);
+			$vm->set(self::_var_name($plural), $instance, false);
 		}
 		$vm->set('controller', static::_view());
 		$vm->set('model', static::$_model);
@@ -226,8 +226,8 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @return mixed
 	 */
 	protected function get_param($num) {
-		if(count($this->request->method_params) > $num)
-			return $this->request->method_params[$num];
+		if(count($this->request->method_params) == 2 && count($this->request->method_params[1]) > $num)
+			return $this->request->method_params[1][$num];
 		return null;
 	}
 
