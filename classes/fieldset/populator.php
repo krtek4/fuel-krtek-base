@@ -27,6 +27,9 @@ use KrtekBase\Model_Base;
  * @link https://github.com/krtek4/fuel-krtek-base
  */
 class Fieldset_Populator extends Fieldset_Holder {
+	/** @var array Hold informations about which id / class combination has already been populated */
+	static private $alreadyPopulated = array();
+
 	/**
 	 * Populate the given fieldset with values from the Input data
 	 * and the instance
@@ -102,14 +105,34 @@ class Fieldset_Populator extends Fieldset_Holder {
 	}
 
 	/**
+	 * @param string $class
+	 * @param string $pk
+	 * @return bool was this id / class combination already populated ?
+	 */
+	protected function alreadyPopulated($class, $pk) {
+		return isset(self::$alreadyPopulated[$class][$pk]);
+	}
+
+	/**
+	 * Set this particular id / class combination as populated
+	 * @param string $class
+	 * @param string $pk
+	 */
+	protected function setPopulated($class, $pk) {
+		self::$alreadyPopulated[$class][$pk] = true;
+	}
+
+	/**
 	 * Populate fields from referenced model (one)
 	 */
 	protected function populate_reference_one() {
 		foreach($this->static_variable('_reference_one') as $class => $fk)
 			if(isset($this->instance()->{$fk})) {
 				$reference = call_user_func_array(array($class, 'find_by_pk'), array($this->instance()->{$fk}));
-				if($reference)
-					Fieldset_Populator::populate($reference, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy(), false);
+				if($reference && ! $this->alreadyPopulated($class, $reference->pk())) {
+					$this->setPopulated($class, $reference->pk());
+					Fieldset_Populator::populate($reference, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy());
+				}
 			}
 	}
 
@@ -126,7 +149,10 @@ class Fieldset_Populator extends Fieldset_Holder {
 				} else if(is_array($referenced)) {
 					$referenced = current($referenced);
 				}
-				Fieldset_Populator::populate($referenced, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy(), false);
+				if(! $this->alreadyPopulated($class, $referenced->pk())) {
+					$this->setPopulated($class, $referenced->pk());
+					Fieldset_Populator::populate($referenced, $this->fieldset(), $this->definition(), $class, $this->updated_hierarchy());
+				}
 			}
 		}
 	}
