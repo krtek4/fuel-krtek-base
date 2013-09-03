@@ -2,6 +2,7 @@
 
 namespace KrtekBase;
 
+use Fuel\Core\DB;
 use \Fuel\Core\Lang;
 use \Fuel\Core\Inflector;
 use \Fuel\Core\ViewModel;
@@ -304,7 +305,15 @@ abstract class Controller_Crud extends Controller_Base {
 	 * @param int $id the specific instance id
 	 */
 	public function action_delete($id = -1) {
-		if($this->_instance($id)->delete())
+		try {
+			$status = $this->_instance($id)->delete();
+		} catch(\Exception $e) {
+			$info = DB::error_info();
+			$this->message('error', self::get_message('mysql_error_'.$info[1]));
+			$status = false;
+		}
+
+		if($status)
 			$this->message('success', self::get_message('delete_success'));
 		else
 			$this->message('error', self::get_message('delete_error'));

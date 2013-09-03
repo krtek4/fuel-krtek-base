@@ -69,7 +69,7 @@ class Fieldset_Populator extends Fieldset_Holder {
 				$value = date('Y-m-d', strtotime($value));
 				break;
 			case 'datetime':
-				$value = date('Y-m-d H:m:s', strtotime($value));
+				$value = date('Y-m-d H:i:s', strtotime($value));
 				break;
 		}
 		$field->set_value($value, true);
