@@ -340,6 +340,11 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			}
 
 			$attributes['options'] = array();
+			// add an empty attribute when the field is not required
+			if(strpos($rules, 'required') === false) {
+				$attributes['options'][] = '-';
+			}
+
 			$rows = call_user_func_array($callback, $callback_params);
 			if($rows)
 				foreach($rows as $k => $row)
@@ -619,6 +624,11 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 		$name = self::_field_name($field, $hierarchy, $model);
 		$default = Arr::get($model::$_defaults, $field, null);
 		$value = Input::post($name, Arr::get($data, $name, $default));
+		// if we have a foreign id and 'null' as value, put a real null !
+		if(strpos($field, '_id', strlen($field) - 3) !== false && $value == 'null') {
+			$value = null;
+		}
+
 		return $value;
 	}
 
