@@ -342,7 +342,7 @@ abstract class Model_Base extends \Fuel\Core\Model_Crud {
 			$attributes['options'] = array();
 			// add an empty attribute when the field is not required
 			if(strpos($rules, 'required') === false) {
-				$attributes['options'][] = '-';
+				$attributes['options']['null'] = '-';
 			}
 
 			$rows = call_user_func_array($callback, $callback_params);
